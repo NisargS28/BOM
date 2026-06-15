@@ -63,13 +63,14 @@ export default function EditRowModal({
   );
 
   const isAuxiliary = selectedFormat && selectedFormat.includes("Auxiliary");
+  const isCycleTime = selectedFormat && selectedFormat.includes("Cycle Time");
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box" style={{ borderTop: `3px solid ${isAuxiliary ? "#2d8a3e" : "#7c3aed"}`, width: 660 }}>
+      <div className="modal-box" style={{ borderTop: `3px solid ${isAuxiliary ? "#2d8a3e" : isCycleTime ? "#e6920a" : "#7c3aed"}`, width: 660 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 18, color: "#1e3a5f", letterSpacing: 2 }}>
-            {isAuxiliary ? "EDIT AUXILIARY ITEM SPECIFICATIONS" : "EDIT SHEET SPECIFICATIONS"}
+            {isAuxiliary ? "EDIT AUXILIARY ITEM SPECIFICATIONS" : isCycleTime ? "EDIT CYCLE TIME SPECIFICATIONS" : "EDIT SHEET SPECIFICATIONS"}
           </div>
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#bbb", fontSize: 20, cursor: "pointer" }}>✕</button>
         </div>
@@ -133,6 +134,42 @@ export default function EditRowModal({
                 </div>
               </>
             )}
+          </div>
+        ) : isCycleTime ? (
+          /* Cycle Time Form */
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ gridColumn: "1/-1" }}>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>PART DESCRIPTION</div>
+              {fInp("partDescription", "text")}
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>PART CODE</div>
+              {fInp("partCode", "text")}
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>NO OF PROGRAMS</div>
+              {fInp("noOfPrograms", "number")}
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>CNC TIME (HH:MM:SS)</div>
+              {fInp("cncTime", "text")}
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>FINISHING TIME (HH:MM:SS)</div>
+              {fInp("finishingTime", "text")}
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>MANUAL OPERATIONS (HH:MM:SS)</div>
+              {fInp("manualOperations", "text")}
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>REPAIR KIT (HH:MM:SS)</div>
+              {fInp("repairKit", "text")}
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>OTHERS (HH:MM:SS)</div>
+              {fInp("others", "text")}
+            </div>
           </div>
         ) : (
           /* Standard BOM Form */

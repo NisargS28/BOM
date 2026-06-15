@@ -20,6 +20,8 @@ import HeaderSection from './components/HeaderSection';
 import BOMTable from './components/BOMTable';
 import NonReturnableAuxiliaryTable from './components/NonReturnableAuxiliaryTable';
 import ReturnableAuxiliaryTable from './components/ReturnableAuxiliaryTable';
+import TentativeCycleTimeTable from './components/TentativeCycleTimeTable';
+import ProductionCycleTimeTable from './components/ProductionCycleTimeTable';
 import AnalyticsModal from './components/AnalyticsModal';
 import MaterialModal from './components/MaterialModal';
 import ColumnModal from './components/ColumnModal';
@@ -79,6 +81,21 @@ const mkReturnableRow = (cols = DEFAULT_AUX_COLS) => {
   });
   return row;
 };
+
+const mkCycleTimeRow = (sno) => ({
+  id: Date.now() + Math.random() + "_" + sno,
+  sno,
+  partDescription: "",
+  partCode: "",
+  noOfPrograms: "",
+  cncTime: "",
+  finishingTime: "",
+  manualOperations: "",
+  repairKit: "",
+  others: ""
+});
+
+const mkDefaultCycleTimeRows = () => Array.from({ length: 13 }, (_, i) => mkCycleTimeRow(i + 1));
 
 // Configure this to toggle between localhost and your remote ngrok URL
 //const API_BASE_URL = "https://unmade-amnesty-gallon.ngrok-free.dev";
@@ -144,7 +161,19 @@ export default function App() {
     date: "",
     articleCode: "",
     ecNo: "",
-    articleRev: ""
+    articleRev: "",
+    // Cycle time defaults
+    projectName: "",
+    customerLocation: "",
+    supplier: "SKAPS",
+    supplyLocation: "",
+    section: "CORE",
+    machine: "",
+    projectCode: "",
+    approvedBy: "",
+    dataTakenBy: "",
+    kitWoNo: "",
+    kitPrdDate: ""
   });
   
   const [rows, setRows, undoRows, canUndo] = useUndoRows([mkRow(DEFAULT_SHELL_COLS, DEFAULT_MATERIAL_TYPES)]);
@@ -154,6 +183,10 @@ export default function App() {
   const [returnableCols, setReturnableCols] = useState(DEFAULT_AUX_COLS);
   const [nonReturnableRows, setNonReturnableRows, undoNonReturnableRows, canUndoNonReturnableRows] = useUndoRows([mkNonReturnableRow(DEFAULT_AUX_COLS)]);
   const [returnableRows, setReturnableRows, undoReturnableRows, canUndoReturnableRows] = useUndoRows([mkReturnableRow(DEFAULT_AUX_COLS)]);
+
+  // Cycle time formats states
+  const [tentativeCycleRows, setTentativeCycleRows, undoTentativeCycleRows, canUndoTentativeCycleRows] = useUndoRows(mkDefaultCycleTimeRows());
+  const [productionCycleRows, setProductionCycleRows, undoProductionCycleRows, canUndoProductionCycleRows] = useUndoRows(mkDefaultCycleTimeRows());
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(null);
   const [filterType, setFilterType] = useState("ALL");
@@ -224,11 +257,15 @@ export default function App() {
               setReturnableCols(data.header.returnableCols || DEFAULT_AUX_COLS);
               setNonReturnableRows(data.header.nonReturnableAuxRows || [mkNonReturnableRow(data.header.nonReturnableCols || DEFAULT_AUX_COLS)]);
               setReturnableRows(data.header.returnableAuxRows || [mkReturnableRow(data.header.returnableCols || DEFAULT_AUX_COLS)]);
+              setTentativeCycleRows(data.header.tentativeCycleRows || mkDefaultCycleTimeRows());
+              setProductionCycleRows(data.header.productionCycleRows || mkDefaultCycleTimeRows());
             } else {
               setNonReturnableCols(DEFAULT_AUX_COLS);
               setReturnableCols(DEFAULT_AUX_COLS);
               setNonReturnableRows([mkNonReturnableRow(DEFAULT_AUX_COLS)]);
               setReturnableRows([mkReturnableRow(DEFAULT_AUX_COLS)]);
+              setTentativeCycleRows(mkDefaultCycleTimeRows());
+              setProductionCycleRows(mkDefaultCycleTimeRows());
             }
             showToast("Loaded from DB");
           }
@@ -251,6 +288,16 @@ export default function App() {
             undoReturnableRows();
             showToast("Undone");
           }
+        } else if (selectedFormat === "Cycle Time - Tentative") {
+          if (canUndoTentativeCycleRows) {
+            undoTentativeCycleRows();
+            showToast("Undone");
+          }
+        } else if (selectedFormat === "Cycle Time - Production") {
+          if (canUndoProductionCycleRows) {
+            undoProductionCycleRows();
+            showToast("Undone");
+          }
         } else {
           if (canUndo) {
             undoRows();
@@ -265,6 +312,8 @@ export default function App() {
     canUndo, undoRows, 
     canUndoNonReturnableRows, undoNonReturnableRows, 
     canUndoReturnableRows, undoReturnableRows, 
+    canUndoTentativeCycleRows, undoTentativeCycleRows,
+    canUndoProductionCycleRows, undoProductionCycleRows,
     selectedFormat
   ]);
 
@@ -288,6 +337,20 @@ export default function App() {
       !search || (r.description && r.description.toLowerCase().includes(search.toLowerCase()))
     );
   }, [returnableRows, search]);
+
+  const filteredTentativeCycle = useMemo(() => {
+    return tentativeCycleRows.filter(r => 
+      !search || (r.partDescription && r.partDescription.toLowerCase().includes(search.toLowerCase())) ||
+      (r.partCode && r.partCode.toLowerCase().includes(search.toLowerCase()))
+    );
+  }, [tentativeCycleRows, search]);
+
+  const filteredProductionCycle = useMemo(() => {
+    return productionCycleRows.filter(r => 
+      !search || (r.partDescription && r.partDescription.toLowerCase().includes(search.toLowerCase())) ||
+      (r.partCode && r.partCode.toLowerCase().includes(search.toLowerCase()))
+    );
+  }, [productionCycleRows, search]);
 
   const totals = useMemo(() => {
     const colTotals = {};
@@ -337,6 +400,18 @@ export default function App() {
         ...r, 
         [inlineCell.colId]: isNumeric ? (parseFloat(valStr) || 0) : valStr 
       } : r));
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      const isNumeric = inlineCell.colId === "noOfPrograms";
+      setTentativeCycleRows(prev => prev.map(r => r.id === inlineCell.rowId ? { 
+        ...r, 
+        [inlineCell.colId]: isNumeric ? (parseInt(valStr) || 0) : valStr 
+      } : r));
+    } else if (selectedFormat === "Cycle Time - Production") {
+      const isNumeric = inlineCell.colId === "noOfPrograms";
+      setProductionCycleRows(prev => prev.map(r => r.id === inlineCell.rowId ? { 
+        ...r, 
+        [inlineCell.colId]: isNumeric ? (parseInt(valStr) || 0) : valStr 
+      } : r));
     } else {
       setRows(prev => prev.map(r => r.id === inlineCell.rowId ? { ...r, [inlineCell.colId]: parseFloat(valStr) || 0 } : r));
     }
@@ -360,6 +435,10 @@ export default function App() {
       setNonReturnableRows(prev => prev.map(r => r.id === editingId ? { ...form } : r));
     } else if (selectedFormat === "Returnable Auxiliary") {
       setReturnableRows(prev => prev.map(r => r.id === editingId ? { ...form } : r));
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      setTentativeCycleRows(prev => prev.map(r => r.id === editingId ? { ...form } : r));
+    } else if (selectedFormat === "Cycle Time - Production") {
+      setProductionCycleRows(prev => prev.map(r => r.id === editingId ? { ...form } : r));
     } else {
       setRows(prev => prev.map(r => r.id === editingId ? { ...form } : r));
     }
@@ -371,6 +450,16 @@ export default function App() {
       setNonReturnableRows(prev => prev.filter(r => r.id !== id));
     } else if (selectedFormat === "Returnable Auxiliary") {
       setReturnableRows(prev => prev.filter(r => r.id !== id));
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      setTentativeCycleRows(prev => {
+        const remaining = prev.filter(r => r.id !== id);
+        return remaining.map((r, idx) => ({ ...r, sno: idx + 1 }));
+      });
+    } else if (selectedFormat === "Cycle Time - Production") {
+      setProductionCycleRows(prev => {
+        const remaining = prev.filter(r => r.id !== id);
+        return remaining.map((r, idx) => ({ ...r, sno: idx + 1 }));
+      });
     } else {
       setRows(prev => prev.filter(r => r.id !== id));
     }
@@ -387,6 +476,18 @@ export default function App() {
       const n = [...returnableRows];
       n.splice(idx + 1, 0, { ...row, id: Date.now() + Math.random() });
       setReturnableRows(n);
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      const idx = tentativeCycleRows.findIndex(r => r.id === row.id);
+      const n = [...tentativeCycleRows];
+      n.splice(idx + 1, 0, { ...row, id: Date.now() + Math.random() });
+      const renumbered = n.map((r, i) => ({ ...r, sno: i + 1 }));
+      setTentativeCycleRows(renumbered);
+    } else if (selectedFormat === "Cycle Time - Production") {
+      const idx = productionCycleRows.findIndex(r => r.id === row.id);
+      const n = [...productionCycleRows];
+      n.splice(idx + 1, 0, { ...row, id: Date.now() + Math.random() });
+      const renumbered = n.map((r, i) => ({ ...r, sno: i + 1 }));
+      setProductionCycleRows(renumbered);
     } else {
       const idx = rows.findIndex(r => r.id === row.id);
       const n = [...rows];
@@ -400,6 +501,10 @@ export default function App() {
       setNonReturnableRows(prev => [...prev, mkNonReturnableRow(nonReturnableCols)]);
     } else if (selectedFormat === "Returnable Auxiliary") {
       setReturnableRows(prev => [...prev, mkReturnableRow(returnableCols)]);
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      setTentativeCycleRows(prev => [...prev, mkCycleTimeRow(prev.length + 1)]);
+    } else if (selectedFormat === "Cycle Time - Production") {
+      setProductionCycleRows(prev => [...prev, mkCycleTimeRow(prev.length + 1)]);
     } else {
       setRows(prev => [...prev, mkRow(shellCols, matTypes)]);
     }
