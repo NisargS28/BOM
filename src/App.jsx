@@ -95,7 +95,7 @@ const mkCycleTimeRow = (sno) => ({
   others: ""
 });
 
-const mkDefaultCycleTimeRows = () => Array.from({ length: 13 }, (_, i) => mkCycleTimeRow(i + 1));
+const mkDefaultCycleTimeRows = () => [mkCycleTimeRow(1)];
 
 // Configure this to toggle between localhost and your remote ngrok URL
 //const API_BASE_URL = "https://unmade-amnesty-gallon.ngrok-free.dev";
