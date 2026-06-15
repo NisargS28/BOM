@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SKAPS BOM Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Barlow+Condensed:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f0f4fa;font-family:'JetBrains Mono','Courier New',monospace;color:#1e3a5f}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#e8eaf0}
+::-webkit-scrollbar-thumb{background:#e6920a;border-radius:3px}
+input:focus,select:focus{outline:none !important;border-color:#e6920a !important;box-shadow:0 0 0 2px #e6920a22 !important}
+.row-tr:hover td{background-color:rgba(240,245,255,.7) !important;}
+.act-btn{opacity:0;transition:opacity .15s}
+.row-tr:hover .act-btn{opacity:1}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:fadeIn .2s ease forwards}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.pulsing{animation:pulse .8s infinite}
+.cell-input{background:#fff;border:2px solid #7c3aed;color:#1e3a5f;padding:2px 4px;font-family:inherit;font-size:12px;font-weight:700;width:60px;border-radius:3px;text-align:center}
+.cell-input:focus{outline:none}
+.sv{display:inline-block;padding:2px 8px;font-weight:700;font-size:13px;border-radius:3px;cursor:pointer;transition:background .15s;min-width:38px;text-align:center}
+.sv:hover{background:rgba(0,0,0,.07)}
+.modal-overlay{position:fixed;inset:0;background:rgba(15,30,60,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:200}
+.modal-box{background:#fff;border-radius:10px;box-shadow:0 24px 64px rgba(15,30,60,.18);padding:28px;width:660px;max-height:90vh;overflow-y:auto}
+.toast{position:fixed;bottom:28px;right:28px;background:#1e3a5f;color:#fff;padding:10px 20px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:1px;border-left:4px solid #e6920a;z-index:999;animation:fadeIn .2s ease;box-shadow:0 4px 16px rgba(30,58,95,.35)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useEffect, useCallback } = React;
+
+const DEFAULT_MATERIAL_TYPES = [
+  { id:"mt_pet100",  name:"PET 100",           length:2.44, width:1.22, density:100,  color:"#1d4ed8" },
+  { id:"mt_pet115",  name:"PET 115",           length:2.44, width:1.22, density:115,  color:"#2563a8" },
+  { id:"mt_pet135",  name:"PET 135",           length:2.44, width:1.22, density:135,  color:"#3b7dd8" },
+  { id:"mt_pet150",  name:"PET 150",           length:2.44, width:1.22, density:150,  color:"#0891b2" },
+  { id:"mt_pet200",  name:"PET 200",           length:2.30, width:1.15, density:200,  color:"#0e7490" },
+  { id:"mt_pvc60",   name:"PVC 60",            length:2.44, width:1.22, density:60,   color:"#7c3aed" },
+  { id:"mt_pvc100",  name:"PVC 100",           length:2.44, width:1.22, density:100,  color:"#9b3090" },
+  { id:"mt_pvc115",  name:"PVC 115",           length:2.44, width:1.22, density:115,  color:"#a855f7" },
+  { id:"mt_pvc135",  name:"PVC 135",           length:2.44, width:1.22, density:135,  color:"#c026d3" },
+  { id:"mt_pvc150",  name:"PVC 150",           length:2.44, width:1.22, density:150,  color:"#db2777" },
+  { id:"mt_pvc200",  name:"PVC 200",           length:2.44, width:1.22, density:200,  color:"#e11d48" },
+  { id:"mt_balsar",  name:"BALSA RIGID",       length:2.44, width:1.22, density:200,  color:"#d35400" },
+  { id:"mt_balsaf",  name:"BALSA FLEXIBLE",    length:2.44, width:1.22, density:150,  color:"#c87530" },
+  { id:"mt_balsasf", name:"BALSA SEMI FLEXIBLE",length:2.44,width:1.22, density:175,  color:"#b45309" },
+];
+
+const DEFAULT_SURFACES = ["SEALED","COATED","PRIMED","PAINTED","GELCOAT","PEEL PLY"];
+const PALETTE  = ["#2563a8","#c87530","#2d8a3e","#9b3090","#c0392b","#16a085","#d35400","#2c3e50","#e6920a","#0891b2"];
+
+const DEFAULT_SHELL_COLS = [
+  { id:"sc_suction_balsa",  label:"Suction - BALSA",  color:"#c87530", itemCode:"", itemRev:"A" },
+  { id:"sc_suction_pet",    label:"Suction - PET",    color:"#2563a8", itemCode:"", itemRev:"A" },
+  { id:"sc_pressure_pet",   label:"Pressure - PET",   color:"#2563a8", itemCode:"", itemRev:"A" },
+  { id:"sc_pressure_balsa", label:"Pressure - BALSA", color:"#c87530", itemCode:"", itemRev:"A" },
+];
+
+const getRowBg = (t, mts) => {
+  const mt = mts.find(m=>m.name===t);
+  return mt ? mt.color+"18" : "#f5f5ff";
+};
+const getAccent = (t, mts) => {
+  const mt = mts.find(m=>m.name===t);
+  return mt ? mt.color : "#6655aa";
+};
+
+const calcColStats = (sheets, r, extraPct=0) => {
+  const mult = 1 + (extraPct||0)/100;
+  const L = r.length||0, W = r.width||0, T = r.thickness||0, D = r.density||0;
+  const sqm = (sheets||0) * L * W;
+  const vol = sqm * T;
+  const wt  = vol * D;
+  return { sheets:sheets||0, sqm:sqm*mult, vol:vol*mult, wt:wt*mult, sqmBase:sqm, volBase:vol, wtBase:wt };
+};
+
+const mkRow = (shellCols, matTypes) => {
+  const shellData = {};
+  shellCols.forEach(c => { shellData[c.id] = 0; });
+  const def = matTypes[0] || { name:"PET 100", length:2.44, width:1.22, density:100 };
+  return {
+    id: Date.now() + Math.random(),
+    description:"", type:def.name, supplier:"", finishing:"",
+    surface:"SEALED", length:def.length, width:def.width,
+    thickness:0.01, density:def.density,
+    ...shellData,
+  };
+};
+
+const calcRow = (r, shellCols, extraPct=0) => {
+  const colStats = {};
+  let totalSheets=0, totalSqm=0, totalVol=0, totalWt=0;
+  shellCols.forEach(c => {
+    const sheets = r[c.id] || 0;
+    const s = calcColStats(sheets, r, extraPct);
+    colStats[c.id] = s;
+    totalSheets += s.sheets; totalSqm += s.sqm; totalVol += s.vol; totalWt += s.wt;
+  });
+  return { ...r, colStats, totalSheets, totalSqm, totalVol, totalWt };
+};
+
+const iStyle = {background:"#f8fafc",border:"1px solid #d0dcea",color:"#1e3a5f",padding:"5px 10px",fontSize:11,fontFamily:"'JetBrains Mono',monospace",width:"100%",borderRadius:3};
+const TD = {padding:"6px 8px",borderRight:"1px solid #e4eaf4",whiteSpace:"nowrap",fontSize:11,color:"#2c4a72"};
+const TH = {padding:"8px 10px",color:"#3b5a8a",fontWeight:700,letterSpacing:.6,textAlign:"left",whiteSpace:"nowrap",fontSize:9,borderRight:"1px solid #c8d8ee",background:"#e8f0fb"};
+const btnPrimary = {background:"#e6920a",color:"#fff",border:"none",padding:"7px 18px",fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,cursor:"pointer",letterSpacing:1,borderRadius:5,boxShadow:"0 2px 6px rgba(230,146,10,.25)"};
+const btnSmall   = {background:"transparent",border:"1.5px solid #e6920a",color:"#e6920a",padding:"3px 8px",fontSize:11,fontFamily:"inherit",cursor:"pointer",borderRadius:4};
+
+/* ── Simple undo hook ── */
+function useUndoRows(init) {
+  const [stack, setStack] = useState([init]);
+  const [ptr,   setPtr]   = useState(0);
+  const current = stack[ptr];
+
+  const set = useCallback(fn => {
+    setStack(prev => {
+      const base = prev[ptr];
+      const next = typeof fn === "function" ? fn(base) : fn;
+      const trimmed = prev.slice(0, ptr + 1);
+      trimmed.push(next);
+      if (trimmed.length > 50) trimmed.shift();
+      return trimmed;
+    });
+    setPtr(p => Math.min(p + 1, 49));
+  }, [ptr]);
+
+  const undo = useCallback(() => {
+    setPtr(p => Math.max(0, p - 1));
+  }, []);
+
+  const canUndo = ptr > 0;
+  return [current, set, undo, canUndo];
+}
+
+/* ════════════════════════════════════════════════════════════ */
+
+// ══════════════════════════════════════════════════════════════
+// ANALYTICS MODAL COMPONENT
+// ══════════════════════════════════════════════════════════════
+function AnalyticsModal({ computed, shellCols, matTypes, totals, header, onClose }) {
+  const { useState, useEffect, useRef, useMemo } = React;
+  const [pivotRow,    setPivotRow]    = useState("type");      // rows: type|shell
+  const [pivotMetric, setPivotMetric] = useState("wt");        // wt|sqm|vol|sheets
+  const [chartType,   setChartType]   = useState("bar");       // bar|pie|donut|stacked
+  const [activeTab,   setActiveTab]   = useState("charts");    // charts|pivot|summary
+  const barRef   = useRef(null);
+  const pieRef   = useRef(null);
+  const donutRef = useRef(null);
+
+  // ── Metric helpers ───────────────────────────────────────────
+  const metricLabel = {wt:"Weight (kg)", sqm:"Area (m²)", vol:"Volume (m³)", sheets:"No. of Sheets"};
+  const metricFmt   = (v,m) => m==="sheets"?v.toFixed(2):v.toFixed(3);
+  const metricColor = {wt:"#e6920a", sqm:"#2563a8", vol:"#2d8a3e", sheets:"#6b3fb5"};
+
+  // ── Pivot data: by material type ────────────────────────────
+  const byMaterial = useMemo(()=>{
+    return matTypes.map(m=>{
+      const rows = computed.filter(r=>r.type===m.name);
+      return {
+        name: m.name, color: m.color,
+        wt:     rows.reduce((a,r)=>a+r.totalWt,0),
+        sqm:    rows.reduce((a,r)=>a+r.totalSqm,0),
+        vol:    rows.reduce((a,r)=>a+r.totalVol,0),
+        sheets: rows.reduce((a,r)=>a+r.totalSheets,0),
+      };
+    }).filter(m=>m[pivotMetric]>0);
+  }, [computed, matTypes, pivotMetric]);
+
+  // ── Pivot data: by shell column ──────────────────────────────
+  const byShell = useMemo(()=>{
+    return shellCols.map(c=>{
+      const ct = totals.colTotals[c.id]||{sheets:0,sqm:0,vol:0,wt:0};
+      return {name:c.label, color:c.color, wt:ct.wt, sqm:ct.sqm, vol:ct.vol, sheets:ct.sheets};
+    }).filter(c=>c[pivotMetric]>0);
+  }, [shellCols, totals, pivotMetric]);
+
+  // ── Cross-pivot: material × shell ────────────────────────────
+  const crossPivot = useMemo(()=>{
+    return matTypes.map(m=>{
+      const entry = {name:m.name, color:m.color};
+      shellCols.forEach(c=>{
+        const rows = computed.filter(r=>r.type===m.name);
+        const ct   = rows.reduce((a,r)=>{
+          const s=r.colStats[c.id]||{sheets:0,sqm:0,vol:0,wt:0};
+          return {wt:a.wt+s.wt, sqm:a.sqm+s.sqm, vol:a.vol+s.vol, sheets:a.sheets+s.sheets};
+        },{wt:0,sqm:0,vol:0,sheets:0});
+        entry[c.id] = ct;
+      });
+      return entry;
+    });
+  }, [computed, matTypes, shellCols, pivotMetric]);
+
+  const chartData = pivotRow==="type" ? byMaterial : byShell;
+  const total     = chartData.reduce((a,d)=>a+d[pivotMetric],0);
+
+  // ── Draw Bar chart ───────────────────────────────────────────
+  const drawBar = (canvas, data, metric, stacked=false) => {
+    if (!canvas || !data.length) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const pad = {top:30, right:20, bottom:70, left:70};
+    const cw = W-pad.left-pad.right, ch = H-pad.top-pad.bottom;
+    const maxVal = Math.max(...data.map(d=>d[metric])) * 1.15 || 1;
+    const barW = Math.min(52, (cw/data.length)*0.62);
+    const gap  = cw/data.length;
+
+    // grid lines
+    ctx.strokeStyle="#e4eaf4"; ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){
+      const y=pad.top+ch*(1-i/4);
+      ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+cw,y); ctx.stroke();
+      ctx.fillStyle="#94a3b8"; ctx.font="10px 'JetBrains Mono',monospace"; ctx.textAlign="right";
+      const v=maxVal*i/4;
+      ctx.fillText(metric==="sheets"?Math.round(v).toString():metric==="vol"?v.toFixed(3):v.toFixed(2), pad.left-6, y+4);
+    }
+
+    // bars
+    data.forEach((d,i)=>{
+      const x = pad.left + i*gap + gap/2 - barW/2;
+      const bh = (d[metric]/maxVal)*ch;
+      const y  = pad.top+ch-bh;
+      // shadow
+      ctx.fillStyle="rgba(0,0,0,.06)";
+      ctx.fillRect(x+3, y+3, barW, bh);
+      // bar gradient
+      const grad = ctx.createLinearGradient(x,y,x,y+bh);
+      grad.addColorStop(0, d.color);
+      grad.addColorStop(1, d.color+"88");
+      ctx.fillStyle=grad;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x,y,barW,bh,4) : ctx.rect(x,y,barW,bh);
+      ctx.fill();
+      // value label
+      ctx.fillStyle="#1e3a5f"; ctx.font="bold 10px 'JetBrains Mono',monospace"; ctx.textAlign="center";
+      const vLabel = metric==="sheets"?Math.round(d[metric]).toString():d[metric].toFixed(2);
+      ctx.fillText(vLabel, x+barW/2, y-5);
+      // x label
+      ctx.fillStyle="#4a6fa8"; ctx.font="9px 'JetBrains Mono',monospace";
+      const words=d.name.split(" ");
+      words.forEach((w,wi)=>ctx.fillText(w, x+barW/2, pad.top+ch+14+wi*12));
+    });
+
+    // axis lines
+    ctx.strokeStyle="#c8d8ee"; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(pad.left,pad.top); ctx.lineTo(pad.left,pad.top+ch); ctx.lineTo(pad.left+cw,pad.top+ch); ctx.stroke();
+  };
+
+  // ── Draw Pie/Donut ───────────────────────────────────────────
+  const drawPie = (canvas, data, metric, donut=false) => {
+    if (!canvas || !data.length) return;
+    const ctx = canvas.getContext("2d");
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const cx=W*0.42, cy=H/2, r=Math.min(cx,cy)*0.78, ir=donut?r*0.52:0;
+    const total = data.reduce((a,d)=>a+d[metric],0)||1;
+    let angle = -Math.PI/2;
+    data.forEach((d,i)=>{
+      const slice = (d[metric]/total)*Math.PI*2;
+      // shadow
+      ctx.save(); ctx.shadowColor="rgba(0,0,0,.12)"; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+slice); ctx.closePath();
+      ctx.fillStyle=d.color; ctx.fill(); ctx.restore();
+      if(donut){ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();}
+      // border
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+slice); ctx.closePath();
+      ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
+      // percent label inside slice
+      if(slice>0.18){
+        const midA=angle+slice/2, lx=cx+Math.cos(midA)*(r*(donut?0.72:0.6)), ly=cy+Math.sin(midA)*(r*(donut?0.72:0.6));
+        ctx.fillStyle="#fff"; ctx.font="bold 10px 'JetBrains Mono',monospace"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(((d[metric]/total)*100).toFixed(1)+"%", lx, ly);
+      }
+      angle+=slice;
+    });
+    // donut center text
+    if(donut){
+      ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillStyle="#1e3a5f"; ctx.font="bold 13px 'Barlow Condensed',sans-serif";
+      ctx.fillText("TOTAL", cx, cy-10);
+      ctx.font="bold 16px 'Barlow Condensed',sans-serif"; ctx.fillStyle="#e6920a";
+      const tv=metric==="sheets"?Math.round(total).toString():total.toFixed(2);
+      ctx.fillText(tv, cx, cy+8);
+    }
+    // legend
+    const lx=W*0.82, ly=H/2 - (data.length*22)/2;
+    data.forEach((d,i)=>{
+      ctx.fillStyle=d.color; ctx.fillRect(lx,ly+i*22,12,12);
+      ctx.fillStyle="#1e3a5f"; ctx.font="10px 'JetBrains Mono',monospace"; ctx.textAlign="left"; ctx.textBaseline="top";
+      const nm=d.name.length>12?d.name.slice(0,11)+"\u2026":d.name;
+      ctx.fillText(nm, lx+17, ly+i*22);
+    });
+  };
+
+  // ── Redraw on data/type change ───────────────────────────────
+  useEffect(()=>{
+    if(activeTab!=="charts") return;
+    setTimeout(()=>{
+      if(chartType==="bar"||chartType==="stacked") drawBar(barRef.current, chartData, pivotMetric);
+      if(chartType==="pie")   drawPie(pieRef.current, chartData, pivotMetric, false);
+      if(chartType==="donut") drawPie(donutRef.current, chartData, pivotMetric, true);
+    },50);
+  }, [chartData, chartType, pivotMetric, pivotRow, activeTab]);
+
+  const tabStyle = (t) => ({
+    padding:"7px 18px", fontSize:10, fontFamily:"inherit", fontWeight:700, cursor:"pointer",
+    borderBottom: activeTab===t?"3px solid #e6920a":"3px solid transparent",
+    background:"transparent", border:"none", borderBottom: activeTab===t?"3px solid #e6920a":"3px solid transparent",
+    color: activeTab===t?"#e6920a":"#94a3b8", transition:"all .15s", letterSpacing:.5,
+  });
+
+  return (
+    <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal-box" style={{width:"min(96vw,960px)",maxHeight:"92vh",padding:0,overflow:"hidden",display:"flex",flexDirection:"column",borderRadius:12}}>
+
+        {/* Header */}
+        <div style={{background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",padding:"16px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:22,color:"#fff",letterSpacing:2}}>📊 ANALYTICS</div>
+            <div style={{fontSize:9,color:"rgba(255,255,255,.6)",letterSpacing:1.5,marginTop:2}}>{header.article||"PROJECT"} · {computed.length} MATERIALS</div>
+          </div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",color:"#fff",width:32,height:32,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+
+        {/* Tab bar */}
+        <div style={{display:"flex",borderBottom:"1px solid #e4eaf4",background:"#fafbff",padding:"0 24px",flexShrink:0}}>
+          {[["charts","📈 CHARTS"],["pivot","⊞ PIVOT TABLE"],["summary","▦ SUMMARY"]].map(([t,l])=>(
+            <button key={t} onClick={()=>setActiveTab(t)} style={tabStyle(t)}>{l}</button>
+          ))}
+        </div>
+
+        {/* Controls bar */}
+        <div style={{display:"flex",gap:10,padding:"10px 24px",background:"#f4f7fb",borderBottom:"1px solid #e4eaf4",flexWrap:"wrap",alignItems:"center",flexShrink:0}}>
+          <div style={{fontSize:8,color:"#94a3b8",fontWeight:700,letterSpacing:1}}>GROUP BY</div>
+          {[["type","Material Type"],["shell","Shell Column"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setPivotRow(k)} style={{padding:"4px 12px",fontSize:9,fontFamily:"inherit",fontWeight:700,borderRadius:4,cursor:"pointer",border:"1.5px solid "+(pivotRow===k?"#1e3a5f":"#d0dcea"),background:pivotRow===k?"#1e3a5f":"#fff",color:pivotRow===k?"#e6920a":"#94a3b8",transition:"all .12s"}}>{l}</button>
+          ))}
+          <div style={{width:1,height:20,background:"#dce8f4",margin:"0 4px"}}/>
+          <div style={{fontSize:8,color:"#94a3b8",fontWeight:700,letterSpacing:1}}>METRIC</div>
+          {[["wt","WT kg","#e6920a"],["sqm","SQM m²","#2563a8"],["vol","VOL m³","#2d8a3e"],["sheets","SHEETS","#6b3fb5"]].map(([k,l,c])=>(
+            <button key={k} onClick={()=>setPivotMetric(k)} style={{padding:"4px 12px",fontSize:9,fontFamily:"inherit",fontWeight:700,borderRadius:4,cursor:"pointer",border:"1.5px solid "+(pivotMetric===k?c:"#d0dcea"),background:pivotMetric===k?c+"15":"#fff",color:pivotMetric===k?c:"#94a3b8",transition:"all .12s"}}>{l}</button>
+          ))}
+          {activeTab==="charts"&&<>
+            <div style={{width:1,height:20,background:"#dce8f4",margin:"0 4px"}}/>
+            <div style={{fontSize:8,color:"#94a3b8",fontWeight:700,letterSpacing:1}}>CHART</div>
+            {[["bar","▊ Bar"],["pie","◕ Pie"],["donut","◎ Donut"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setChartType(k)} style={{padding:"4px 12px",fontSize:9,fontFamily:"inherit",fontWeight:700,borderRadius:4,cursor:"pointer",border:"1.5px solid "+(chartType===k?"#e6920a":"#d0dcea"),background:chartType===k?"#fff4e0":"#fff",color:chartType===k?"#e6920a":"#94a3b8",transition:"all .12s"}}>{l}</button>
+            ))}
+          </>}
+        </div>
+
+        {/* Content */}
+        <div style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+
+          {/* ── CHARTS TAB ── */}
+          {activeTab==="charts"&&(
+            <div>
+              <div style={{textAlign:"center",marginBottom:8,fontSize:9,color:"#94a3b8",letterSpacing:1,fontWeight:700}}>{metricLabel[pivotMetric].toUpperCase()} BY {pivotRow==="type"?"MATERIAL TYPE":"SHELL COLUMN"}</div>
+              {chartData.length===0&&<div style={{textAlign:"center",padding:"40px",color:"#ccc",fontSize:11}}>No data to display. Add rows with sheet counts.</div>}
+              {chartData.length>0&&(
+                <>
+                  {chartType==="bar"&&<canvas ref={barRef}   width={860} height={320} style={{width:"100%",height:"auto",borderRadius:8,background:"#fafbff",border:"1px solid #e4eaf4"}}/>}
+                  {chartType==="pie"&&<canvas ref={pieRef}   width={860} height={340} style={{width:"100%",height:"auto",borderRadius:8,background:"#fafbff",border:"1px solid #e4eaf4"}}/>}
+                  {chartType==="donut"&&<canvas ref={donutRef} width={860} height={340} style={{width:"100%",height:"auto",borderRadius:8,background:"#fafbff",border:"1px solid #e4eaf4"}}/>}
+                  {/* Mini stat cards */}
+                  <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}>
+                    {chartData.map(d=>(
+                      <div key={d.name} style={{flex:"1 1 120px",background:"#fff",border:"1.5px solid "+d.color+"33",borderLeft:"3px solid "+d.color,borderRadius:6,padding:"8px 12px"}}>
+                        <div style={{fontSize:8,color:d.color,fontWeight:800,letterSpacing:.8,marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif"}}>{d.name}</div>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:800,color:"#1e3a5f"}}>{metricFmt(d[pivotMetric],pivotMetric)}</div>
+                        <div style={{fontSize:8,color:"#94a3b8",marginTop:1}}>{((d[pivotMetric]/total)*100).toFixed(1)}% of total</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── PIVOT TABLE TAB ── */}
+          {activeTab==="pivot"&&(
+            <div>
+              <div style={{fontSize:9,color:"#94a3b8",letterSpacing:1,fontWeight:700,marginBottom:12}}>CROSS-PIVOT: MATERIAL TYPE × SHELL COLUMN — {metricLabel[pivotMetric].toUpperCase()}</div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
+                  <thead>
+                    <tr style={{background:"#1e3a5f"}}>
+                      <th style={{padding:"8px 12px",color:"#e6920a",fontWeight:800,textAlign:"left",fontSize:9,letterSpacing:1,borderRight:"1px solid #2d5a8e",minWidth:140}}>MATERIAL TYPE</th>
+                      {shellCols.map(c=>(
+                        <th key={c.id} style={{padding:"8px 10px",color:c.color,fontWeight:800,textAlign:"center",fontSize:9,letterSpacing:.5,borderRight:"1px solid #2d5a8e",minWidth:100,lineHeight:1.4}}>
+                          <div>{c.label}</div>
+                          {c.itemCode&&<div style={{fontSize:7,color:"rgba(255,255,255,.5)",fontWeight:400}}>{c.itemCode}</div>}
+                        </th>
+                      ))}
+                      <th style={{padding:"8px 10px",color:"#e6920a",fontWeight:800,textAlign:"center",fontSize:9,background:"#162d4a",minWidth:90}}>TOTAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {crossPivot.map((m,i)=>{
+                      const rowTotal=shellCols.reduce((a,c)=>a+(m[c.id]?m[c.id][pivotMetric]:0),0);
+                      if(rowTotal===0) return null;
+                      const maxInRow=Math.max(...shellCols.map(c=>m[c.id]?m[c.id][pivotMetric]:0));
+                      return (
+                        <tr key={m.name} style={{background:i%2===0?"#fff":"#f8fbff",borderBottom:"1px solid #e4eaf4"}}>
+                          <td style={{padding:"8px 12px",fontWeight:700,color:m.color,borderRight:"2px solid "+m.color+"33",fontSize:10}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <div style={{width:8,height:8,borderRadius:"50%",background:m.color,flexShrink:0}}/>
+                              {m.name}
+                            </div>
+                          </td>
+                          {shellCols.map(c=>{
+                            const val=m[c.id]?m[c.id][pivotMetric]:0;
+                            const pct=maxInRow>0?(val/maxInRow)*100:0;
+                            return (
+                              <td key={c.id} style={{padding:"6px 10px",textAlign:"center",borderRight:"1px solid #e4eaf4",position:"relative"}}>
+                                {val>0&&<div style={{position:"absolute",bottom:0,left:0,height:"3px",width:pct+"%",background:c.color+"66",borderRadius:"0 2px 0 0"}}/>}
+                                <span style={{fontWeight:val>0?700:400,color:val>0?metricColor[pivotMetric]:"#ddd",position:"relative"}}>
+                                  {val>0?metricFmt(val,pivotMetric):"—"}
+                                </span>
+                              </td>
+                            );
+                          })}
+                          <td style={{padding:"6px 10px",textAlign:"center",fontWeight:800,color:metricColor[pivotMetric],background:metricColor[pivotMetric]+"0e"}}>
+                            {metricFmt(rowTotal,pivotMetric)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{background:"#f0f5ff",borderTop:"2px solid #e6920a"}}>
+                      <td style={{padding:"8px 12px",fontWeight:800,color:"#e6920a",fontSize:9,letterSpacing:.5}}>COLUMN TOTAL</td>
+                      {shellCols.map(c=>{
+                        const ct=totals.colTotals[c.id]||{sheets:0,sqm:0,vol:0,wt:0};
+                        return <td key={c.id} style={{padding:"8px 10px",textAlign:"center",fontWeight:800,color:c.color,borderRight:"1px solid #e4eaf4"}}>{metricFmt(ct[pivotMetric],pivotMetric)}</td>;
+                      })}
+                      <td style={{padding:"8px 10px",textAlign:"center",fontWeight:800,fontSize:12,color:"#e6920a"}}>{metricFmt(pivotMetric==="sheets"?totals.totalSheets:pivotMetric==="sqm"?totals.totalSqm:pivotMetric==="vol"?totals.totalVol:totals.totalWt,pivotMetric)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── SUMMARY TAB ── */}
+          {activeTab==="summary"&&(
+            <div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:20}}>
+                {[
+                  ["TOTAL WEIGHT","#e6920a","#fff4e0",totals.totalWt.toFixed(3),"kg"],
+                  ["TOTAL SQM","#2563a8","#eff6ff",totals.totalSqm.toFixed(3),"m²"],
+                  ["TOTAL VOLUME","#2d8a3e","#f0fdf4",totals.totalVol.toFixed(3),"m³"],
+                  ["TOTAL SHEETS","#6b3fb5","#ede8fb",totals.totalSheets.toString(),"sheets"],
+                  ["MATERIALS","#0891b2","#ecfeff",computed.length.toString(),"rows"],
+                  ["SHELL COLS","#db2777","#fdf2f8",shellCols.length.toString(),"parts"],
+                ].map(([l,c,bg,v,u])=>(
+                  <div key={l} style={{background:bg,border:"1.5px solid "+c+"33",borderRadius:8,padding:"14px 18px",borderLeft:"4px solid "+c}}>
+                    <div style={{fontSize:8,color:c,fontWeight:800,letterSpacing:1.2,marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif"}}>{l}</div>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:800,color:"#1e3a5f",lineHeight:1}}>{v}</div>
+                    <div style={{fontSize:9,color:c,marginTop:3,fontWeight:600}}>{u}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Per-material breakdown bars */}
+              <div style={{fontSize:9,color:"#94a3b8",fontWeight:700,letterSpacing:1,marginBottom:10}}>BREAKDOWN BY MATERIAL · {metricLabel[pivotMetric].toUpperCase()}</div>
+              {byMaterial.map(m=>{
+                const pct=total>0?(m[pivotMetric]/total)*100:0;
+                return (
+                  <div key={m.name} style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:3}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:8,height:8,borderRadius:2,background:m.color}}/>
+                        <span style={{fontSize:10,fontWeight:700,color:m.color}}>{m.name}</span>
+                      </div>
+                      <div style={{display:"flex",gap:10,alignItems:"baseline"}}>
+                        <span style={{fontSize:11,fontWeight:800,color:"#1e3a5f",fontFamily:"'Barlow Condensed',sans-serif"}}>{metricFmt(m[pivotMetric],pivotMetric)}</span>
+                        <span style={{fontSize:9,color:"#94a3b8"}}>{pct.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div style={{height:8,background:"#f0f4fa",borderRadius:4,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:pct+"%",background:"linear-gradient(90deg,"+m.color+","+m.color+"99)",borderRadius:4,transition:"width .4s ease"}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function App() {
+  // ✅ USER LOGIN
+  const [username, setUsername] = useState("");
+  const [userInput, setUserInput] = useState("");
+
+  // ✅ ARTICLES & REVISIONS
+  const [articleList, setArticleList] = useState([]);
+  const [revisionList, setRevisionList] = useState([]);
+
+  // ✅ APPROVAL
+  const [showApprove, setShowApprove] = useState(false);
+  const [approver, setApprover] = useState("");
+
+  // FOR HIDDEN BUTTONS
+  const [hidden, setHidden] = useState(true);
+
+  const [newArticle, setNewArticle] = useState("");
+  const [newCustomer, setNewCustomer] = useState("");
+  const [newRevision, setNewRevision] = useState("");
+
+  const [matTypes,   setMatTypes]   = useState(DEFAULT_MATERIAL_TYPES);
+  const [shellCols,  setShellCols]  = useState(DEFAULT_SHELL_COLS);
+  const [header,     setHeader]     = useState({ article:"", customer:"", rev:"A01", preparedBy:"", checkedBy:"", modifiedBy:"", date:"", articleCode:"", ecNo:"", articleRev:"" });
+  const [rows,       setRows,       undoRows, canUndo] = useUndoRows([mkRow(DEFAULT_SHELL_COLS, DEFAULT_MATERIAL_TYPES)]);
+  const [editingId,  setEditingId]  = useState(null);
+  const [form,       setForm]       = useState(null);
+  const [filterType, setFilterType] = useState("ALL");
+  const [search,     setSearch]     = useState("");
+  const [inlineCell, setInlineCell] = useState(null);
+  const [inlineVal,  setInlineVal]  = useState("");
+  const [showMetric, setShowMetric] = useState("sqm");
+  const [extraPct,   setExtraPct]   = useState(0);
+  const [saveMsg,    setSaveMsg]    = useState("");
+  const [lastSaved,  setLastSaved]  = useState(null);
+  const [toast,      setToast]      = useState("");
+  const [exporting,  setExporting]  = useState(false);
+  const [exportMsg,  setExportMsg]  = useState("");
+  const [activeModal,setActiveModal]= useState(null); // "matTypes"|"columns"|"importExcel"|null
+
+  /* Material type form */
+  const [newMat,    setNewMat]    = useState({ name:"", length:2.44, width:1.22, density:100, color:PALETTE[0] });
+  const [editMatId, setEditMatId] = useState(null);
+
+  /* Column manager form */
+  const [newColLabel, setNewColLabel] = useState("");
+  const [newColColor, setNewColColor] = useState(PALETTE[0]);
+  const [newColCode,  setNewColCode]  = useState("");
+  const [surfaces,    setSurfaces]    = useState(DEFAULT_SURFACES);
+  const [newSurface,  setNewSurface]  = useState("");
+  const [newColRev,   setNewColRev]   = useState("A");
+
+  /* Excel import */
+  const [importRows,    setImportRows]    = useState([]);
+  const [importHeaders, setImportHeaders] = useState([]);
+  const [importMapping, setImportMapping] = useState({});
+  const [importFile,    setImportFile]    = useState("");
+
+  const showToast = msg => { setToast(msg); setTimeout(()=>setToast(""), 2600); };
+
+  // LOAD ARTICLE LIST FROM BACKEND
+  useEffect(()=>{
+    fetch("http://localhost:8080/articles")
+      .then(r=>r.json())
+      .then(data=>setArticleList(data))
+      .catch(()=>console.log("API not ready"));
+  },[]);
+
+  // LOAD REVISIONS
+  useEffect(()=>{
+    if(header.article && header.customer){
+      fetch(`http://localhost:8080/revisions?article=${header.article}&customer=${header.customer}`)
+        .then(r=>r.json())
+        .then(setRevisionList);
+    }
+  },[header.article, header.customer]);
+
+
+  // AUTO LOAD DATA
+  useEffect(()=>{
+    if(header.article && header.customer && header.rev){
+      fetch(`http://localhost:8080/load?article=${header.article}&customer=${header.customer}&revision=${header.rev}`)
+        .then(r=>r.json())
+        .then(data=>{
+          if(data.rows){
+            setRows(data.rows);
+            setShellCols(data.shellCols);
+            showToast("Loaded from DB");
+          }
+        });
+    }
+  },[header.rev]);
+
+  /* Ctrl+Z shortcut */
+  useEffect(() => {
+    const handler = e => {
+      if ((e.ctrlKey||e.metaKey) && e.key==="z" && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo) { undoRows(); showToast("Undone"); }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [canUndo, undoRows]);
+
+  /* Computed */
+  const computed   = useMemo(() => rows.map(r => calcRow(r, shellCols, extraPct)), [rows, shellCols, extraPct]);
+  const matNames   = useMemo(() => matTypes.map(m => m.name), [matTypes]);
+  const filtered   = useMemo(() => computed.filter(r => {
+    const mt = filterType==="ALL" || r.type===filterType;
+    const ms = !search || r.description.toLowerCase().includes(search.toLowerCase()) || r.supplier.toLowerCase().includes(search.toLowerCase());
+    return mt && ms;
+  }), [computed, filterType, search]);
+
+  const totals = useMemo(() => {
+    const colTotals = {};
+    shellCols.forEach(c => {
+      colTotals[c.id] = {
+        sheets:  computed.reduce((a,r)=>a+(r[c.id]||0),0),
+        sqm:     computed.reduce((a,r)=>a+(r.colStats[c.id]?r.colStats[c.id].sqm:0),0),
+        vol:     computed.reduce((a,r)=>a+(r.colStats[c.id]?r.colStats[c.id].vol:0),0),
+        wt:      computed.reduce((a,r)=>a+(r.colStats[c.id]?r.colStats[c.id].wt:0),0),
+        sqmBase: computed.reduce((a,r)=>a+(r.colStats[c.id]?r.colStats[c.id].sqmBase??r.colStats[c.id].sqm:0),0),
+        volBase: computed.reduce((a,r)=>a+(r.colStats[c.id]?r.colStats[c.id].volBase??r.colStats[c.id].vol:0),0),
+        wtBase:  computed.reduce((a,r)=>a+(r.colStats[c.id]?r.colStats[c.id].wtBase??r.colStats[c.id].wt:0),0),
+      };
+    });
+    const totalWt = computed.reduce((a,r)=>a+r.totalWt,0);
+    return {
+      totalSheets: computed.reduce((a,r)=>a+r.totalSheets,0),
+      totalSqm:    computed.reduce((a,r)=>a+r.totalSqm,0),
+      totalVol:    computed.reduce((a,r)=>a+r.totalVol,0),
+      totalWt,
+      total: totalWt,
+      colTotals,
+    };
+  }, [computed, shellCols]);
+
+  /* Row helpers */
+  const startInline = (rowId, colId, cur) => { setInlineCell({rowId,colId}); setInlineVal(String(cur)); };
+  const commitInline = () => {
+    if (!inlineCell) return;
+    setRows(prev => prev.map(r => r.id===inlineCell.rowId ? {...r,[inlineCell.colId]:parseFloat(inlineVal)||0} : r));
+    setInlineCell(null); setInlineVal("");
+  };
+  const openEdit  = row => { setEditingId(row.id); setForm({...row}); };
+  const closeEdit = ()  => { setEditingId(null); setForm(null); };
+  const saveEdit  = ()  => { setRows(prev => prev.map(r => r.id===editingId ? {...form} : r)); closeEdit(); };
+  const deleteRow = id  => setRows(prev => prev.filter(r => r.id!==id));
+  const dupRow    = row => { const idx=rows.findIndex(r=>r.id===row.id); const n=[...rows]; n.splice(idx+1,0,{...row,id:Date.now()}); setRows(n); };
+  const addRow    = ()  => setRows(prev => [...prev, mkRow(shellCols, matTypes)]);
+  const fmtM = v => showMetric==="sqm"?v.toFixed(3)+" m²":showMetric==="vol"?v.toFixed(3)+" m³":showMetric==="wt"?v.toFixed(3)+" kg":v.toFixed(2);
+
+  /* When type selected in edit form → auto-fill dims */
+  const handleTypeChange = t => {
+    const m = matTypes.find(x=>x.name===t);
+    if (m) setForm(f=>({...f, type:t, length:m.length, width:m.width, density:m.density}));
+    else    setForm(f=>({...f, type:t}));
+  };
+
+  /* Shell columns */
+  const addShellCol    = () => { if (!newColLabel.trim()) return; const id="sc_"+Date.now(); setShellCols(p=>[...p,{id,label:newColLabel.trim(),color:newColColor,itemCode:"",itemRev:"A"}]); setRows(p=>p.map(r=>({...r,[id]:0}))); setNewColLabel(""); };
+  const removeShellCol = id => { setShellCols(p=>p.filter(c=>c.id!==id)); setRows(p=>p.map(r=>{const n={...r};delete n[id];return n;})); };
+  const renameShellCol  = (id,label)    => setShellCols(p=>p.map(c=>c.id===id?{...c,label}:c));
+  const recolorShellCol = (id,color)    => setShellCols(p=>p.map(c=>c.id===id?{...c,color}:c));
+  const updateColCode   = (id,itemCode) => setShellCols(p=>p.map(c=>c.id===id?{...c,itemCode}:c));
+  const updateColRev    = (id,itemRev)  => setShellCols(p=>p.map(c=>c.id===id?{...c,itemRev}:c));
+
+  /* Material Types */
+  const addMaterial = () => {
+    if (!newMat.name.trim()) return;
+    if (matTypes.some(m=>m.name===newMat.name.trim())) { showToast("Name already exists"); return; }
+    setMatTypes(p=>[...p,{...newMat,name:newMat.name.trim(),id:"mt_"+Date.now()}]);
+    setNewMat({name:"",length:2.44,width:1.22,density:100,color:PALETTE[0]});
+    showToast("Material added");
+  };
+  const deleteMaterial = id => {
+    const mat = matTypes.find(m=>m.id===id);
+    if (!mat) return;
+    const remaining = matTypes.filter(m=>m.id!==id);
+    setMatTypes(remaining);
+    setRows(prev=>prev.map(r=>r.type===mat.name?{...r,type:(remaining[0]?.name||"PET 100")}:r));
+    showToast("Material deleted");
+  };
+  const updateMat = (id, field, val) => {
+    setMatTypes(prev=>prev.map(m=>{
+      if (m.id!==id) return m;
+      const v = (field==="name"||field==="color") ? val : (parseFloat(val)||0);
+      const updated = {...m,[field]:v};
+      if (field!=="name"&&field!=="color") {
+        setRows(prev2=>prev2.map(r=>r.type===m.name?{...r,[field]:v}:r));
+      }
+      return updated;
+    }));
+  };
+
+  const saveToSQL = async () => {
+    await fetch("http://localhost:8080/save", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({
+        article: header.article,
+        customer: header.customer,
+        revision: header.rev,
+        header,
+        rows,
+        shellCols
+      })
+    });
+
+    showToast("Saved to SQL");
+  };
+
+  const approveData = async () => {
+    await fetch("http://localhost:8080/approve", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({
+        article: header.article,
+        customer: header.customer,
+        revision: header.rev,
+        approver,
+        header,
+        rows,
+        shellCols
+      })
+    });
+
+    showToast("Approved successfully");
+    setShowApprove(false);
+  };
+
+
+
+  /* Save / Load */
+  const saveToFile = () => {
+    const data = {version:4,savedAt:new Date().toISOString(),header,rows,shellCols,showMetric,matTypes,surfaces,extraPct};
+    const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=`SKAPS_BOM_${header.article||"PROJECT"}_${header.rev||"A01"}.bom.json`;
+    a.click(); URL.revokeObjectURL(url);
+    setLastSaved(new Date()); setSaveMsg("Saved!"); setTimeout(()=>setSaveMsg(""),2500);
+    showToast("Session saved");
+  };
+  const loadFromFile = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (d.header)    setHeader(d.header);
+        if (d.rows)      setRows(d.rows);
+        if (d.shellCols) setShellCols(d.shellCols);
+        if (d.showMetric)setShowMetric(d.showMetric);
+        if (d.matTypes)  setMatTypes(d.matTypes);
+        if (d.surfaces)  setSurfaces(d.surfaces);
+        if (d.extraPct!=null) setExtraPct(d.extraPct);
+        setLastSaved(d.savedAt?new Date(d.savedAt):new Date());
+        showToast("Session loaded");
+      } catch { alert("Could not read file. Use a valid .bom.json file."); }
+    };
+    reader.readAsText(file); e.target.value="";
+  };
+
+  /* Excel Import */
+  const handleExcelUpload = e => {
+    const file = e.target.files[0]; if (!file) return;
+    setImportFile(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const wb = window.XLSX.read(ev.target.result,{type:"binary"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = window.XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+        if (data.length < 2) { showToast("No data found"); return; }
+        const headers = data[0].map(h=>String(h).trim());
+        const dataRows = data.slice(1).filter(r=>r.some(c=>c!==""));
+        setImportHeaders(headers); setImportRows(dataRows);
+        // auto-map
+        const map = {};
+        const aliases = {
+          description:["description","desc","raw material description","material","name","raw material"],
+          type:["type","material type","raw material type","mat type"],
+          supplier:["supplier","vendor"],
+          finishing:["finishing","finish"],
+          surface:["surface"],
+          length:["length","l(m)","l (m)","length (m)"],
+          width:["width","w(m)","w (m)","width (m)"],
+          thickness:["thickness","th(m)","th (m)","thickness (m)","th"],
+          density:["density","density (kg/m3)","density (kg/m³)","dens"],
+          partName:["part name","partname","part"],
+        };
+        headers.forEach((h,i)=>{
+          const hl = h.toLowerCase();
+          Object.entries(aliases).forEach(([field,alts])=>{ if(alts.includes(hl)) map[field]=i; });
+          shellCols.forEach(sc=>{ if(hl===sc.label.toLowerCase()||hl===sc.label.toLowerCase()+" sheets") map[sc.id]=i; });
+        });
+        setImportMapping(map);
+        setActiveModal("importExcel");
+      } catch { showToast("Could not read Excel file"); }
+    };
+    reader.readAsBinaryString(file); e.target.value="";
+  };
+
+  const applyImport = mode => {
+    const newRows = importRows.map(row=>{
+      const get  = f => { const i=importMapping[f]; return i!=null?row[i]:""; };
+      const getN = (f,def=0) => parseFloat(get(f))||def;
+      const typeName = String(get("type")).trim();
+      const mat = matTypes.find(m=>m.name===typeName) || matTypes[0];
+      const shellData={};
+      shellCols.forEach(c=>{ shellData[c.id]=getN(c.id,0); });
+      return {
+        id:Date.now()+Math.random(),
+        description:String(get("description")).trim(),
+        type:mat?mat.name:(matTypes[0]?.name||"PET 100"),
+        supplier:String(get("supplier")).trim(),
+        finishing:String(get("finishing")).trim(),
+        surface:String(get("surface")).trim()||"SEALED",
+        length:getN("length",mat?.length||2.44),
+        width:getN("width",mat?.width||1.22),
+        thickness:getN("thickness",0.01),
+        density:getN("density",mat?.density||100),
+
+        ...shellData,
+      };
+    });
+    if (mode==="replace") setRows(newRows);
+    else setRows(prev=>[...prev,...newRows]);
+    setActiveModal(null);
+    setImportRows([]); setImportHeaders([]); setImportMapping({});
+    showToast(`Imported ${newRows.length} rows`);
+  };
+
+  /* Excel Export — 4 metric sheets + 1 summary */
+  const exportToExcel = () => {
+    if (!window.XLSX) return;
+    setExporting(true);
+    const XLSX=window.XLSX, wb=XLSX.utils.book_new();
+
+    // ── Shared helpers ────────────────────────────────────────────
+    const al   = h => ({horizontal:h, vertical:"center"});
+    const alCW = h => ({horizontal:h, vertical:"center", wrapText:true});
+    const bdr  = (clr="C8D8EE") => ({top:{style:"thin",color:{rgb:clr}},bottom:{style:"thin",color:{rgb:clr}},left:{style:"thin",color:{rgb:clr}},right:{style:"thin",color:{rgb:clr}}});
+    const bdrM = (clr="A0C4E4") => ({top:{style:"medium",color:{rgb:clr}},bottom:{style:"medium",color:{rgb:clr}},left:{style:"medium",color:{rgb:clr}},right:{style:"medium",color:{rgb:clr}}});
+    const numFmt3="0.000", numFmt4="0.0000";
+
+    const metaFields = [
+      ["ARTICLE",header.article],["CUSTOMER",header.customer],
+      ["REVISION",header.rev],["PREPARED BY",header.preparedBy],
+      ["CHECKED BY",header.checkedBy],["ARTICLE CODE",header.articleCode],
+      ["EC NO",header.ecNo],["ARTICLE REV",header.articleRev],
+    ];
+
+    // ── Helper: build one metric sheet ───────────────────────────
+    // metricKey: "sheets"|"sqm"|"vol"|"wt"
+    const buildSheet = (metricKey) => {
+      const ws = {};
+      const R  = (r,c,cell) => { ws[XLSX.utils.encode_cell({r,c})] = cell; };
+
+      // Colors per metric
+      const mColors = {
+        sheets: {accent:"1E3A5F", light:"EEF4FF", colFg:"1E3A5F", colBg:"DBE8F8", totFg:"6B3FB5", totBg:"EDE8FB", unit:"sheets", label:"NO. OF SHEETS"},
+        sqm:    {accent:"B8600A", light:"FFF8EE", colFg:"B8600A", colBg:"FFF4E0", totFg:"B8600A", totBg:"FFF4E0", unit:"m\u00b2",   label:"AREA (SQM)"},
+        vol:    {accent:"2D8A3E", light:"F0FDF4", colFg:"2D8A3E", colBg:"E8FDF2", totFg:"2D8A3E", totBg:"F0FDF4", unit:"m\u00b3",   label:"VOLUME"},
+        wt:     {accent:"B45309", light:"FFFBEB", colFg:"B45309", colBg:"FFF8EE", totFg:"B45309", totBg:"FFFBEB", unit:"kg",        label:"WEIGHT"},
+      };
+      const mc = mColors[metricKey];
+      const totalCols = 10 + shellCols.length + 1; // mat cols + one per shell + grand total
+
+      // Row 0 – Title banner
+      R(0,0,{v:"SKAPS BOM — "+mc.label,t:"s",s:{font:{bold:true,sz:16,color:{rgb:"FFFFFF"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"1E3A5F"}},alignment:al("left"),border:bdrM(mc.accent)}});
+      for(let c=1;c<totalCols;c++) R(0,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"1E3A5F"}},border:bdrM(mc.accent)}});
+
+      // Row 1 – accent divider
+      for(let c=0;c<totalCols;c++) R(1,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:mc.accent}}}});
+
+      // Rows 2-3 – project meta
+      metaFields.forEach(([l,v],i)=>{
+        const row=2+Math.floor(i/4), col=(i%4)*2;
+        R(row,col,{v:l,t:"s",s:{font:{bold:true,sz:8,color:{rgb:"94A3B8"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"EEF4FF"}},alignment:al("left"),border:bdr("C8D8EE")}});
+        R(row,col+1,{v:v||"\u2014",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"1E3A5F"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"F8FBFF"}},alignment:al("left"),border:bdr("C8D8EE")}});
+      });
+
+      // Row 4 – divider
+      for(let c=0;c<totalCols;c++) R(4,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}}}});
+
+      // Row 5 – group headers
+      const matColCount = 10;
+      R(5,0,{v:"MATERIAL INFORMATION",t:"s",s:{font:{bold:true,sz:9,color:{rgb:"2563A8"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},alignment:alCW("center"),border:bdrM("A0C4E4")}});
+      for(let c=1;c<matColCount;c++) R(5,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      shellCols.forEach((c,i)=>{
+        const cc=c.color.replace("#","");
+        R(5,matColCount+i,{v:c.label+(c.itemCode?" | "+c.itemCode:"")+(c.itemRev?" Rev:"+c.itemRev:""),t:"s",s:{font:{bold:true,sz:9,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.colBg}},alignment:alCW("center"),border:bdrM(cc)}});
+      });
+      R(5,matColCount+shellCols.length,{v:"TOTAL "+mc.label.toUpperCase(),t:"s",s:{font:{bold:true,sz:9,color:{rgb:mc.accent},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.light}},alignment:alCW("center"),border:bdrM(mc.accent)}});
+
+      // Row 6 – column headers
+      const mkH=(v,fg,bg)=>({v,t:"s",s:{font:{bold:true,sz:9,color:{rgb:fg},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:bg}},alignment:alCW("center"),border:bdr("C8D8EE")}});
+      [["SR NO","4A6FA8","F0F5FF"],["DESCRIPTION","4A6FA8","F0F5FF"],["TYPE","4A6FA8","F0F5FF"],["SUPPLIER","4A6FA8","F0F5FF"],["FINISHING","4A6FA8","F0F5FF"],["SURFACE","4A6FA8","F0F5FF"],["L (m)","6B3FB5","EDE8FB"],["W (m)","6B3FB5","EDE8FB"],["Th (m)","6B3FB5","EDE8FB"],["DENSITY kg/m\u00b3","6B3FB5","EDE8FB"]].forEach(([v,f,b],i)=>R(6,i,mkH(v,f,b)));
+      shellCols.forEach((c,i)=>{
+        const cc=c.color.replace("#","");
+        R(6,matColCount+i,{v:mc.unit,t:"s",s:{font:{bold:true,sz:9,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.colBg}},alignment:alCW("center"),border:bdrM(cc)}});
+      });
+      R(6,matColCount+shellCols.length,{v:"TOTAL "+mc.unit,t:"s",s:{font:{bold:true,sz:9,color:{rgb:mc.totFg},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.totBg}},alignment:alCW("center"),border:bdrM(mc.accent)}});
+
+      // Rows 7+ – data
+      const getRowFill = t => {
+        if(t&&t.startsWith("PET")) return {patternType:"solid",fgColor:{rgb:"EFF6FF"}};
+        if(t&&t.startsWith("PVC")) return {patternType:"solid",fgColor:{rgb:"FDF4FF"}};
+        if(t&&t.startsWith("BALSA")) return {patternType:"solid",fgColor:{rgb:"FFFBEB"}};
+        const mt=matTypes.find(m=>m.name===t);
+        return mt?{patternType:"solid",fgColor:{rgb:"F8FAFC"}}:{patternType:"solid",fgColor:{rgb:"F8FAFC"}};
+      };
+      const dc=(v,t,fill,fnt,fmt)=>({v:v!=null?v:"",t,s:{font:{sz:10,name:"Calibri",...fnt},fill,alignment:al(t==="n"?"center":"left"),border:bdr(),...(fmt?{numFmt:fmt}:{})}});
+      const getVal = (r,c) => {
+        const s=r.colStats[c.id]||{sheets:0,sqm:0,vol:0,wt:0};
+        if(metricKey==="sheets") return s.sheets;
+        if(metricKey==="sqm")    return s.sqm;
+        if(metricKey==="vol")    return s.vol;
+        return s.wt;
+      };
+      const getRowTotal = r => {
+        if(metricKey==="sheets") return r.totalSheets;
+        if(metricKey==="sqm")    return r.totalSqm;
+        if(metricKey==="vol")    return r.totalVol;
+        return r.totalWt;
+      };
+      const fmt = metricKey==="sheets"?null:metricKey==="vol"?numFmt4:numFmt3;
+
+      computed.forEach((r,i)=>{
+        const row=7+i;
+        const fill=getRowFill(r.type);
+        const mt=matTypes.find(m=>m.name===r.type);
+        const acRgb=(mt?mt.color:"#6655AA").replace("#","");
+        let c2=0;
+        R(row,c2++,dc(i+1,"n",fill,{bold:true,color:{rgb:"94A3B8"}}));
+        R(row,c2++,dc(r.description,"s",fill,{bold:true,color:{rgb:"1E3A5F"}}));
+        R(row,c2++,dc(r.type,"s",{patternType:"solid",fgColor:{rgb:"EEF2FF"}},{bold:true,color:{rgb:acRgb}}));
+        R(row,c2++,dc(r.supplier,"s",fill,{color:{rgb:"4A6FA8"}}));
+        R(row,c2++,dc(r.finishing,"s",fill,{color:{rgb:"4A6FA8"}}));
+        R(row,c2++,dc(r.surface,"s",fill,{color:{rgb:"888888"}}));
+        [r.length,r.width,r.thickness].forEach(v=>R(row,c2++,dc(v,"n",{patternType:"solid",fgColor:{rgb:"F3F0FF"}},{color:{rgb:"6B3FB5"}},"0.000")));
+        R(row,c2++,dc(r.density,"n",{patternType:"solid",fgColor:{rgb:"F3F0FF"}},{color:{rgb:"6B3FB5"}},"0.00"));
+        shellCols.forEach(col=>{
+          const cRgb=col.color.replace("#","");
+          const val=getVal(r,col);
+          R(row,c2++,dc(val,"n",{patternType:"solid",fgColor:{rgb:mc.light}},{bold:metricKey==="sheets",color:{rgb:cRgb}},fmt));
+        });
+        const tot=getRowTotal(r);
+        R(row,c2++,dc(tot,"n",{patternType:"solid",fgColor:{rgb:mc.totBg}},{bold:true,color:{rgb:mc.totFg}},fmt));
+      });
+
+      // Separator + grand totals row
+      const sr=7+computed.length;
+      for(let c=0;c<totalCols;c++) R(sr,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"E8F0FB"}}}});
+      const tr=sr+1;
+      R(tr,0,{v:"GRAND TOTALS",t:"s",s:{font:{bold:true,sz:10,color:{rgb:mc.accent},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.light}},alignment:al("left"),border:bdrM(mc.accent)}});
+      for(let c=1;c<matColCount;c++) R(tr,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:mc.light}},border:bdrM(mc.accent)}});
+      let tc2=matColCount;
+      shellCols.forEach(col=>{
+        const ct=totals.colTotals[col.id]||{sheets:0,sqm:0,vol:0,wt:0};
+        const cRgb=col.color.replace("#","");
+        const val=metricKey==="sheets"?ct.sheets:metricKey==="sqm"?ct.sqm:metricKey==="vol"?ct.vol:ct.wt;
+        R(tr,tc2++,{v:val,t:"n",s:{font:{bold:true,sz:11,color:{rgb:cRgb},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.light}},alignment:al("center"),border:bdrM(cRgb),...(fmt?{numFmt:fmt}:{})}});
+      });
+      const grandVal=metricKey==="sheets"?totals.totalSheets:metricKey==="sqm"?totals.totalSqm:metricKey==="vol"?totals.totalVol:totals.totalWt;
+      R(tr,tc2,{v:grandVal,t:"n",s:{font:{bold:true,sz:13,color:{rgb:mc.accent},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.totBg}},alignment:al("center"),border:bdrM(mc.accent),...(fmt?{numFmt:fmt}:{})}});
+
+      // Material type summary
+      let mr=tr+2;
+      R(mr,0,{v:mc.label.toUpperCase()+" SUMMARY BY MATERIAL TYPE",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"1E3A5F"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdr()}});
+      mr++;
+      matTypes.forEach(m=>{
+        const rows2=computed.filter(r2=>r2.type===m.name);
+        const val=metricKey==="sheets"?rows2.reduce((a,r2)=>a+r2.totalSheets,0):metricKey==="sqm"?rows2.reduce((a,r2)=>a+r2.totalSqm,0):metricKey==="vol"?rows2.reduce((a,r2)=>a+r2.totalVol,0):rows2.reduce((a,r2)=>a+r2.totalWt,0);
+        if(val>0){
+          const cc=m.color.replace("#","");
+          R(mr,0,{v:m.name,t:"s",s:{font:{bold:true,sz:9,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"F8FAFC"}},border:bdr()}});
+          R(mr,1,{v:val,t:"n",s:{font:{bold:true,sz:10,color:{rgb:mc.accent},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.light}},border:bdr(),...(fmt?{numFmt:fmt}:{})}});
+          R(mr,2,{v:mc.unit,t:"s",s:{font:{sz:9,color:{rgb:"94A3B8"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.light}},border:bdr()}});
+          mr++;
+        }
+      });
+      R(mr,0,{v:"GRAND TOTAL",t:"s",s:{font:{bold:true,sz:10,color:{rgb:mc.accent},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.light}},border:bdrM(mc.accent)}});
+      R(mr,1,{v:grandVal,t:"n",s:{font:{bold:true,sz:12,color:{rgb:mc.accent},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.totBg}},border:bdrM(mc.accent),...(fmt?{numFmt:fmt}:{})}});
+      R(mr,2,{v:mc.unit,t:"s",s:{font:{bold:true,sz:9,color:{rgb:mc.accent},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:mc.light}},border:bdrM(mc.accent)}});
+
+      // Sheet config
+      ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:mr+2,c:totalCols-1}});
+      ws["!cols"]=[{wch:5},{wch:36},{wch:14},{wch:13},{wch:12},{wch:9},{wch:8},{wch:8},{wch:8},{wch:11},...shellCols.map(()=>({wch:13})),{wch:14}];
+      ws["!rows"]=[{hpt:26},{hpt:5},{hpt:18},{hpt:18},{hpt:5},{hpt:20},{hpt:30},...computed.map(()=>({hpt:16})),{hpt:5},{hpt:22}];
+      ws["!merges"]=[
+        {s:{r:0,c:0},e:{r:0,c:totalCols-1}},
+        {s:{r:1,c:0},e:{r:1,c:totalCols-1}},
+        {s:{r:4,c:0},e:{r:4,c:totalCols-1}},
+        {s:{r:5,c:0},e:{r:5,c:matColCount-1}},
+        {s:{r:sr,c:0},e:{r:sr,c:totalCols-1}},
+        {s:{r:tr,c:0},e:{r:tr,c:matColCount-1}},
+      ];
+      ws["!sheetView"]=[{state:"frozen",xSplit:0,ySplit:7,topLeftCell:"A8"}];
+      return ws;
+    };
+
+
+    // ── Build Analytics / Pivot sheet ────────────────────────────
+    const buildAnalyticsSheet = () => {
+      const ws = {};
+      const R  = (r,c,cell) => { ws[XLSX.utils.encode_cell({r,c})] = cell; };
+      const al   = h => ({horizontal:h, vertical:"center"});
+      const alCW = h => ({horizontal:h, vertical:"center", wrapText:true});
+      const bdr  = (clr="C8D8EE") => ({top:{style:"thin",color:{rgb:clr}},bottom:{style:"thin",color:{rgb:clr}},left:{style:"thin",color:{rgb:clr}},right:{style:"thin",color:{rgb:clr}}});
+      const bdrM = (clr="A0C4E4") => ({top:{style:"medium",color:{rgb:clr}},bottom:{style:"medium",color:{rgb:clr}},left:{style:"medium",color:{rgb:clr}},right:{style:"medium",color:{rgb:clr}}});
+      const numFmt3="0.000", numFmt4="0.0000";
+      const mkHdr=(v,fg,bg,border=bdr())=>({v,t:"s",s:{font:{bold:true,sz:9,color:{rgb:fg},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:bg}},alignment:alCW("center"),border}});
+      const mkCell=(v,t,fg,bg,fmt,bold=false,border=bdr())=>({v:v!=null?v:"",t,s:{font:{bold,sz:10,name:"Calibri",color:{rgb:fg}},fill:{patternType:"solid",fgColor:{rgb:bg}},alignment:al(t==="n"?"center":"left"),border,...(fmt?{numFmt:fmt}:{})}});
+
+      let row = 0;
+
+      // ── Title ──────────────────────────────────────────────────
+      const totalAnalyticsCols = 3 + shellCols.length + 1;
+      R(row,0,{v:"ANALYTICS & PIVOT SUMMARY",t:"s",s:{font:{bold:true,sz:16,color:{rgb:"FFFFFF"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"1E3A5F"}},alignment:al("left"),border:bdrM("E6920A")}});
+      for(let c=1;c<totalAnalyticsCols+4;c++) R(row,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"1E3A5F"}},border:bdrM("E6920A")}});
+      row++;
+      for(let c=0;c<totalAnalyticsCols+4;c++) R(row,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"E6920A"}}}});
+      row++;
+
+      // ── SECTION 1: Summary KPIs ────────────────────────────────
+      R(row,0,{v:"PROJECT KPIs",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"1E3A5F"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      for(let c=1;c<8;c++) R(row,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      row++;
+      const kpis=[
+        ["TOTAL WEIGHT",totals.totalWt,"n","B45309","FFFBEB",numFmt3,"kg"],
+        ["TOTAL AREA",totals.totalSqm,"n","2563A8","EFF6FF",numFmt3,"m²"],
+        ["TOTAL VOLUME",totals.totalVol,"n","2D8A3E","F0FDF4",numFmt4,"m³"],
+        ["TOTAL SHEETS",totals.totalSheets,"n","6B3FB5","EDE8FB","0","sheets"],
+        ["NO. OF MATERIALS",computed.length,"n","0891B2","ECFEFF","0","rows"],
+        ["NO. OF PARTS",shellCols.length,"n","DB2777","FDF2F8","0","parts"],
+      ];
+      const kRow=row, kRow2=row+1;
+      kpis.slice(0,3).forEach(([l,v,t,fg,bg,fmt,u],i)=>{
+        R(kRow,i*2,{v:l,t:"s",s:{font:{bold:true,sz:8,color:{rgb:"94A3B8"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:bg}},alignment:al("left"),border:bdr(fg)}});
+        R(kRow,i*2+1,{v:v,t,s:{font:{bold:true,sz:12,color:{rgb:fg},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:bg}},alignment:al("center"),border:bdr(fg),...(fmt?{numFmt:fmt}:{})}});
+      });
+      kpis.slice(3).forEach(([l,v,t,fg,bg,fmt,u],i)=>{
+        R(kRow2,i*2,{v:l,t:"s",s:{font:{bold:true,sz:8,color:{rgb:"94A3B8"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:bg}},alignment:al("left"),border:bdr(fg)}});
+        R(kRow2,i*2+1,{v:v,t,s:{font:{bold:true,sz:12,color:{rgb:fg},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:bg}},alignment:al("center"),border:bdr(fg),...(fmt?{numFmt:fmt}:{})}});
+      });
+      row+=3;
+
+      // ── SECTION 2: By Material Pivot (4 metrics) ───────────────
+      row++;
+      R(row,0,{v:"PIVOT BY MATERIAL TYPE",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"1E3A5F"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      for(let c=1;c<5;c++) R(row,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      row++;
+      [["MATERIAL","4A6FA8","F0F5FF"],["WEIGHT (kg)","B45309","FFFBEB"],["AREA (m²)","2563A8","EFF6FF"],["VOLUME (m³)","2D8A3E","F0FDF4"],["NO. SHEETS","6B3FB5","EDE8FB"]].forEach(([v,f,b],i)=>R(row,i,mkHdr(v,f,b)));
+      row++;
+      const matStart2=row;
+      matTypes.forEach(m=>{
+        const mrows=computed.filter(r=>r.type===m.name);
+        const wt=mrows.reduce((a,r)=>a+r.totalWt,0);
+        if(wt===0&&mrows.length===0) return;
+        const cc=m.color.replace("#","");
+        const sqm=mrows.reduce((a,r)=>a+r.totalSqm,0);
+        const vol=mrows.reduce((a,r)=>a+r.totalVol,0);
+        const sh=mrows.reduce((a,r)=>a+r.totalSheets,0);
+        R(row,0,{v:m.name,t:"s",s:{font:{bold:true,sz:10,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"F8FAFC"}},alignment:al("left"),border:bdrM(cc)}});
+        R(row,1,mkCell(wt,"n","B45309","FFFBEB",numFmt3,true));
+        R(row,2,mkCell(sqm,"n","2563A8","EFF6FF",numFmt3,true));
+        R(row,3,mkCell(vol,"n","2D8A3E","F0FDF4",numFmt4,true));
+        R(row,4,mkCell(sh,"n","6B3FB5","EDE8FB","0",true));
+        row++;
+      });
+      // Totals row for mat pivot
+      R(row,0,{v:"TOTAL",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"E6920A"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"FFF4E0"}},border:bdrM("E6920A")}});
+      R(row,1,mkCell(totals.totalWt,"n","B45309","FFF4E0",numFmt3,true,bdrM("E6920A")));
+      R(row,2,mkCell(totals.totalSqm,"n","2563A8","FFF4E0",numFmt3,true,bdrM("E6920A")));
+      R(row,3,mkCell(totals.totalVol,"n","2D8A3E","FFF4E0",numFmt4,true,bdrM("E6920A")));
+      R(row,4,mkCell(totals.totalSheets,"n","6B3FB5","FFF4E0","0",true,bdrM("E6920A")));
+      const matEnd2=row; row+=2;
+
+      // ── SECTION 3: By Shell Column Pivot ──────────────────────
+      R(row,0,{v:"PIVOT BY SHELL COLUMN / PART",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"1E3A5F"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      for(let c=1;c<5;c++) R(row,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      row++;
+      [["SHELL PART","4A6FA8","F0F5FF"],["WEIGHT (kg)","B45309","FFFBEB"],["AREA (m²)","2563A8","EFF6FF"],["VOLUME (m³)","2D8A3E","F0FDF4"],["NO. SHEETS","6B3FB5","EDE8FB"]].forEach(([v,f,b],i)=>R(row,i,mkHdr(v,f,b)));
+      row++;
+      shellCols.forEach(c=>{
+        const ct=totals.colTotals[c.id]||{sheets:0,sqm:0,vol:0,wt:0};
+        const cc=c.color.replace("#","");
+        R(row,0,{v:c.label+(c.itemCode?" ("+c.itemCode+")":""),t:"s",s:{font:{bold:true,sz:10,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"F8FAFC"}},alignment:al("left"),border:bdrM(cc)}});
+        R(row,1,mkCell(ct.wt,"n","B45309","FFFBEB",numFmt3,true));
+        R(row,2,mkCell(ct.sqm,"n","2563A8","EFF6FF",numFmt3,true));
+        R(row,3,mkCell(ct.vol,"n","2D8A3E","F0FDF4",numFmt4,true));
+        R(row,4,mkCell(ct.sheets,"n","6B3FB5","EDE8FB","0",true));
+        row++;
+      });
+      R(row,0,{v:"TOTAL",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"E6920A"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"FFF4E0"}},border:bdrM("E6920A")}});
+      R(row,1,mkCell(totals.totalWt,"n","B45309","FFF4E0",numFmt3,true,bdrM("E6920A")));
+      R(row,2,mkCell(totals.totalSqm,"n","2563A8","FFF4E0",numFmt3,true,bdrM("E6920A")));
+      R(row,3,mkCell(totals.totalVol,"n","2D8A3E","FFF4E0",numFmt4,true,bdrM("E6920A")));
+      R(row,4,mkCell(totals.totalSheets,"n","6B3FB5","FFF4E0","0",true,bdrM("E6920A")));
+      row+=2;
+
+      // ── SECTION 4: Cross-pivot Material × Shell ────────────────
+      R(row,0,{v:"CROSS-PIVOT: MATERIAL TYPE × SHELL PART (WEIGHT kg)",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"1E3A5F"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      for(let c=1;c<shellCols.length+2;c++) R(row,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      row++;
+      // Header row: Material | Shell1 | Shell2 | ... | Total
+      R(row,0,mkHdr("MATERIAL","4A6FA8","F0F5FF"));
+      shellCols.forEach((c,i)=>{
+        const cc=c.color.replace("#","");
+        R(row,i+1,{v:c.label,t:"s",s:{font:{bold:true,sz:9,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:cc+"22"}},alignment:alCW("center"),border:bdrM(cc)}});
+      });
+      R(row,shellCols.length+1,mkHdr("TOTAL","B45309","FFFBEB",bdrM("E6920A")));
+      row++;
+      const cpStart=row;
+      matTypes.forEach(m=>{
+        const mrows=computed.filter(r=>r.type===m.name);
+        const rowTotal=shellCols.reduce((a,c)=>{
+          const v=mrows.reduce((b,r)=>b+(r.colStats[c.id]?.wt||0),0); return a+v;
+        },0);
+        if(rowTotal===0) return;
+        const cc=m.color.replace("#","");
+        R(row,0,{v:m.name,t:"s",s:{font:{bold:true,sz:10,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"F8FAFC"}},alignment:al("left"),border:bdrM(cc)}});
+        shellCols.forEach((c,i)=>{
+          const val=mrows.reduce((a,r)=>a+(r.colStats[c.id]?.wt||0),0);
+          const cRgb=c.color.replace("#","");
+          R(row,i+1,{v:val||0,t:"n",s:{font:{sz:10,name:"Calibri",color:{rgb:val>0?"B45309":"C8D8EE"}},fill:{patternType:"solid",fgColor:{rgb:val>0?"FFFBEB":"F8FAFC"}},alignment:al("center"),border:bdr(cRgb),...(numFmt3?{numFmt:numFmt3}:{})}});
+        });
+        R(row,shellCols.length+1,mkCell(rowTotal,"n","B45309","FFF4E0",numFmt3,true,bdrM("E6920A")));
+        row++;
+      });
+      // Column totals footer
+      R(row,0,{v:"TOTAL",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"E6920A"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"FFF4E0"}},border:bdrM("E6920A")}});
+      shellCols.forEach((c,i)=>{
+        const ct=totals.colTotals[c.id]||{wt:0};
+        R(row,i+1,mkCell(ct.wt,"n","E6920A","FFF4E0",numFmt3,true,bdrM("E6920A")));
+      });
+      R(row,shellCols.length+1,mkCell(totals.totalWt,"n","E6920A","FFF4E0",numFmt3,true,bdrM("E6920A")));
+      const cpEnd=row; row+=2;
+
+      // ── SECTION 5: % Distribution ─────────────────────────────
+      R(row,0,{v:"% WEIGHT DISTRIBUTION BY MATERIAL",t:"s",s:{font:{bold:true,sz:10,color:{rgb:"1E3A5F"},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      for(let c=1;c<4;c++) R(row,c,{v:"",t:"s",s:{fill:{patternType:"solid",fgColor:{rgb:"DBE8F8"}},border:bdrM("A0C4E4")}});
+      row++;
+      [["MATERIAL","4A6FA8","F0F5FF"],["WEIGHT (kg)","B45309","FFFBEB"],["% SHARE","E6920A","FFF4E0"],["BAR","B45309","FFF4E0"]].forEach(([v,f,b],i)=>R(row,i,mkHdr(v,f,b)));
+      row++;
+      matTypes.forEach(m=>{
+        const mrows=computed.filter(r=>r.type===m.name);
+        const wt=mrows.reduce((a,r)=>a+r.totalWt,0);
+        if(wt===0) return;
+        const pct=totals.totalWt>0?(wt/totals.totalWt)*100:0;
+        const cc=m.color.replace("#","");
+        R(row,0,{v:m.name,t:"s",s:{font:{bold:true,sz:10,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"F8FAFC"}},border:bdr()}});
+        R(row,1,mkCell(wt,"n","B45309","FFFBEB",numFmt3,false));
+        R(row,2,{v:pct/100,t:"n",s:{font:{sz:10,name:"Calibri",color:{rgb:"E6920A"}},fill:{patternType:"solid",fgColor:{rgb:"FFF8EE"}},alignment:al("center"),border:bdr(),numFmt:"0.0%"}});
+        R(row,3,{v:"█".repeat(Math.round(pct/5)),t:"s",s:{font:{sz:10,color:{rgb:cc},name:"Calibri"},fill:{patternType:"solid",fgColor:{rgb:"F8FAFC"}},border:bdr()}});
+        row++;
+      });
+      row++;
+
+      // ── Sheet ref & cols ──────────────────────────────────────
+      ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:row+2,c:Math.max(7,shellCols.length+2)}});
+      ws["!cols"]=[{wch:22},{wch:13},{wch:13},{wch:13},{wch:11},...shellCols.map(()=>({wch:13})),{wch:13}];
+      ws["!rows"]=[{hpt:26},{hpt:5},{hpt:18},{hpt:18},{hpt:5}];
+      ws["!merges"]=[
+        {s:{r:0,c:0},e:{r:0,c:Math.max(7,shellCols.length+2)}},
+        {s:{r:1,c:0},e:{r:1,c:Math.max(7,shellCols.length+2)}},
+      ];
+      return ws;
+    };
+
+    // ── Build and append all 4 sheets ────────────────────────────
+    XLSX.utils.book_append_sheet(wb, buildSheet("sheets"), "No. of Sheets");
+    XLSX.utils.book_append_sheet(wb, buildSheet("sqm"),    "SQM (m\u00b2)");
+    XLSX.utils.book_append_sheet(wb, buildSheet("vol"),    "Volume (m\u00b3)");
+    XLSX.utils.book_append_sheet(wb, buildSheet("wt"),     "Weight (kg)");
+    XLSX.utils.book_append_sheet(wb, buildAnalyticsSheet(), "Analytics");
+
+    XLSX.writeFile(wb,`SKAPS_BOM_${header.article||"PROJECT"}_${header.rev||"A01"}.xlsx`,{bookSST:false,type:"binary",cellStyles:true});
+    setExporting(false); setExportMsg("Exported!"); setTimeout(()=>setExportMsg(""),2500);
+  };
+
+
+  const fInp = (field, type="text") => (
+    <input type={type} value={form[field]!=null?form[field]:""} onChange={e=>setForm(f=>({...f,[field]:type==="number"?parseFloat(e.target.value)||0:e.target.value}))} style={iStyle}/>
+  );
+  const fSel = (field, opts) => (
+    <select value={form[field]} onChange={e=>{ if(field==="type") handleTypeChange(e.target.value); else setForm(f=>({...f,[field]:e.target.value})); }} style={iStyle}>
+      {opts.map(o=><option key={o}>{o}</option>)}
+    </select>
+  );
+
+  /* ══════════════════════════════════════════════════════════ */
+  return (
+    <div style={{background:"#f0f5fb",minHeight:"100vh"}}>
+      
+      {/* ✅ USERNAME POPUP */}
+      {!username && (
+        <div className="modal-overlay">
+
+          {/*
+          <div className="modal-box" style={{width:300}}>
+            <h3>Enter Username</h3>
+
+            <input
+              value={userInput}
+              onChange={(e)=>setUserInput(e.target.value)}
+              style={{width:"100%", marginBottom:10}}
+            />
+
+            <button
+              onClick={()=>setUsername(userInput)}
+              style={{width:"100%"}}
+            >
+              Enter
+            </button>
+          </div>
+          
+          // -----------------------------------------------------
+          */}
+
+          <div className="modal-box" style={{width:320}}>
+
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontWeight:800}}>Enter Name</div>
+            </div>
+
+            <input
+              placeholder="Enter Name"
+              value={userInput}
+              onChange={(e)=>setUserInput(e.target.value)}
+              style={{...iStyle, width:"100%", marginBottom:10}}
+            />
+
+            <button
+              onClick={()=>setUsername(userInput)}
+              style={{...btnPrimary, width:"100%"}}
+            >
+              ENTER
+            </button>
+
+          </div>
+
+
+        </div>
+      )}
+
+      {/* ── TOP BAR ─────────────────────────────────────────── */}
+      <div style={{background:"#ffffff",borderBottom:"3px solid #e6920a",padding:"11px 20px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 2px 12px rgba(37,99,168,.10)",flexWrap:"wrap"}}>
+
+        {/* Brand */}
+        <div style={{background:"linear-gradient(135deg,#e6920a,#f5a623)",padding:"6px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:22,color:"#fff",letterSpacing:3,borderRadius:6,boxShadow:"0 2px 8px rgba(230,146,10,.35)"}}>SKAPS</div>
+        <div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:20,color:"#1e3a5f",letterSpacing:2,lineHeight:1.1}}>BOM CALCULATOR</div>
+          <div style={{fontSize:9,color:"#7a9bc4",letterSpacing:1.5,fontWeight:500}}>SHEETS INPUT PER PART · SQM / VOL / WT AUTO-CALCULATED</div>
+        </div>
+
+        <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+
+          
+          <div style={{fontSize:11,fontWeight:700,color:"#1e3a5f"}}>
+            👤 {username}
+          </div>
+
+
+          {/* Metric toggle */}
+          <div style={{display:"flex",gap:2,background:"#f0f5fb",padding:"3px",borderRadius:6,border:"1px solid #d0dcea"}}>
+            {[["sheets","NO. SHEETS"],["sqm","SQM m²"],["vol","VOL m³"],["wt","WT kg"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setShowMetric(k)} style={{padding:"4px 10px",fontSize:9,fontFamily:"inherit",borderRadius:4,cursor:"pointer",fontWeight:700,border:"none",background:showMetric===k?"#1e3a5f":"transparent",color:showMetric===k?"#e6920a":"#7a9bc4",transition:"all .15s",letterSpacing:.3}}>{l}</button>
+            ))}
+          </div>
+
+          {/* Extra % wastage/allowance */}
+          <div style={{display:"flex",alignItems:"center",gap:4,background:extraPct>0?"#fff4e0":"#f0f5fb",border:"1.5px solid "+(extraPct>0?"#e6920a":"#d0dcea"),borderRadius:6,padding:"4px 10px",transition:"all .2s",minWidth:130}}>
+            <span style={{fontSize:8,fontWeight:800,color:extraPct>0?"#e6920a":"#94a3b8",letterSpacing:.8,whiteSpace:"nowrap"}}>EXTRA %</span>
+            <input
+              type="number" min="0" max="999" step="0.5"
+              value={extraPct===0?"":extraPct}
+              onChange={e=>setExtraPct(Math.max(0,parseFloat(e.target.value)||0))}
+              onBlur={e=>{if(e.target.value==="")setExtraPct(0);}}
+              placeholder="0"
+              style={{width:44,background:"transparent",border:"none",outline:"none",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:800,color:extraPct>0?"#e6920a":"#94a3b8",textAlign:"center",padding:"0"}}
+            />
+            <span style={{fontSize:9,fontWeight:700,color:extraPct>0?"#e6920a":"#94a3b8"}}>%</span>
+            {extraPct>0&&<button onClick={()=>setExtraPct(0)} title="Clear" style={{background:"#e6920a22",border:"none",color:"#e6920a",cursor:"pointer",fontSize:10,padding:"1px 5px",lineHeight:1,borderRadius:3,fontWeight:800}}>✕</button>}
+          </div>
+
+          <div style={{width:1,height:26,background:"#dce8f4",margin:"0 2px"}}/>
+
+          {/* UNDO */}
+          <button onClick={()=>{if(canUndo){undoRows();showToast("Undone");}}} disabled={!canUndo} title="Undo (Ctrl+Z)"
+            style={{background:canUndo?"#f0f4fa":"#f8fafc",color:canUndo?"#1e3a5f":"#b8cde0",border:"1.5px solid "+(canUndo?"#c0d4e8":"#e4eaf4"),padding:"5px 11px",fontSize:10,fontFamily:"inherit",cursor:canUndo?"pointer":"not-allowed",fontWeight:700,borderRadius:5,display:"flex",alignItems:"center",gap:4}}>
+            ↩ UNDO
+          </button>
+
+          {/* MAT TYPES */}
+          <button onClick={()=>setActiveModal("matTypes")}
+            style={{background:"#faf5ff",color:"#7c3aed",border:"1.5px solid #c4b5f4",padding:"5px 11px",fontSize:10,fontFamily:"inherit",cursor:"pointer",fontWeight:700,borderRadius:5,whiteSpace:"nowrap"}}>
+            🧱 MAT TYPES
+          </button>
+
+          {/* COLUMNS */}
+          <button onClick={()=>setActiveModal("columns")}
+            style={{background:"#f0f5fb",color:"#1e3a5f",border:"1.5px solid #c0d4e8",padding:"5px 11px",fontSize:10,fontFamily:"inherit",cursor:"pointer",fontWeight:700,borderRadius:5}}>
+            ⚙ COLUMNS
+          </button>
+
+          <div style={{width:1,height:26,background:"#dce8f4",margin:"0 2px"}}/>
+
+          {/* IMPORT EXCEL */}
+          <label style={{background:"#f0fdf4",color:"#15803d",border:"1.5px solid #86efac",padding:"5px 11px",fontSize:10,fontFamily:"inherit",fontWeight:700,cursor:"pointer",borderRadius:5,display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}>
+            📥 IMPORT EXCEL
+            <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} style={{display:"none"}}/>
+          </label>
+
+          {/* EXPORT EXCEL */}
+          <button onClick={exportToExcel} disabled={exporting} className={exporting?"pulsing":""}
+            style={{background:exportMsg?"#15803d":"#1e3a5f",color:"#fff",border:"none",padding:"5px 13px",fontSize:10,fontFamily:"inherit",fontWeight:700,cursor:"pointer",borderRadius:5,display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap",transition:"background .3s",boxShadow:"0 1px 4px rgba(30,58,95,.2)"}}>
+            ⬇ {exportMsg||(exporting?"EXPORTING…":"EXPORT EXCEL")}
+          </button>
+
+
+          {/* ANALYTICS */}
+          <button onClick={()=>setActiveModal("analytics")}
+            style={{display: hidden ? "none" : "inline-block",background:"#f0fdf4",color:"#15803d",border:"1.5px solid #86efac",padding:"5px 13px",fontSize:10,fontFamily:"inherit",fontWeight:700,cursor:"pointer",borderRadius:5,whiteSpace:"nowrap",alignItems:"center",gap:5}}>
+            📊 ANALYTICS
+          </button>
+
+          <div style={{width:1,height:26,background:"#dce8f4",margin:"0 2px"}}/>
+
+          <button onClick={saveToSQL} style={btnPrimary}>
+            💾 SAVE
+          </button>
+
+          <button onClick={()=>setShowApprove(true)} style={btnPrimary}>
+            ✅ APPROVE+
+
+          </button>
+
+
+          {/* SAVE */}
+          <button onClick={saveToFile}
+            style={{display: hidden ? "none" : "inline-block",background:saveMsg?"#15803d":"#7c3aed",color:"#fff",border:"none",padding:"5px 13px",fontSize:10,fontFamily:"inherit",fontWeight:700,cursor:"pointer",borderRadius:5,whiteSpace:"nowrap",transition:"background .3s",boxShadow:"0 1px 4px rgba(124,58,237,.25)"}}>
+            💾 {saveMsg||"SAVE"}
+          </button>
+
+          {/* LOAD */}
+          <label style={{display: hidden ? "none" : "inline-block",background:"#f5f3ff",color:"#7c3aed",border:"1.5px solid #c4b5f4",padding:"5px 13px",fontSize:10,fontFamily:"inherit",fontWeight:700,cursor:"pointer",borderRadius:5,alignItems:"center",gap:4,whiteSpace:"nowrap"}}>
+            📂 LOAD
+            <input type="file" accept=".json,.bom.json" onChange={loadFromFile} style={{display:"none"}}/>
+          </label>
+ 
+          {lastSaved&&<div style={{fontSize:8,color:"#94a3b8",lineHeight:1.5,textAlign:"right"}}><div style={{color:"#7c3aed",fontWeight:700,letterSpacing:.5}}>SAVED</div><div>{lastSaved.toLocaleTimeString()}</div></div>}
+        </div>
+      </div>
+
+      {/* ── PROJECT META ─────────────────────────────────────── */}
+      <div style={{padding:"14px 20px",borderBottom:"1px solid #d4e0f0",background:"#ffffff"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+          <div style={{width:3,height:14,background:"#e6920a",borderRadius:2}}/>
+          <span style={{fontSize:9,color:"#4a6fa8",fontWeight:700,letterSpacing:1.5}}>PROJECT INFORMATION</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:10}}>
+          {[["article","ARTICLE"],["customer","CUSTOMER"],["rev","REVISION"],["preparedBy","PREPARED BY"],["checkedBy","CHECKED BY"],["articleCode","ARTICLE CODE"],["ecNo","EC NO"],["articleRev","ARTICLE REV"]].map(([k,l])=>(
+            <div key={k}>
+              <div style={{fontSize:8,color:"#7a9bc4",letterSpacing:1.2,marginBottom:3,fontWeight:700}}>{l}</div>
+              
+              {k === "article" ? (
+
+                  <div>
+                    {/* ✅ ROW: dropdown + button */}
+                    <div style={{display:"flex",gap:4}}>
+                      <select
+                        value={header.article}
+                        onChange={(e)=>setHeader(h=>({...h, article:e.target.value}))}
+                        style={{...iStyle, flex:1}}
+                      >
+                        <option value="">Select</option>
+                        {articleList.map((a,i)=>(
+                          <option key={i} value={a.article}>{a.article}</option>
+                        ))}
+                      </select>
+
+                      <button onClick={()=>{
+                        if(!newArticle) return;
+                        setArticleList(prev=>[...prev,{article:newArticle, customer:""}]);
+                        setHeader(h=>({...h, article:newArticle}));
+                        setNewArticle("");
+                      }}>
+                        +
+                      </button>
+                    </div>
+
+                    {/* ✅ THIS IS THE NEW INPUT (IMPORTANT) */}
+                    <input
+                      placeholder="New Article"
+                      value={newArticle}
+                      onChange={(e)=>setNewArticle(e.target.value)}
+                      style={{...iStyle, marginTop:4}}
+                    />
+                  </div>
+
+                ) : k === "customer" ? (
+
+                  <div>
+                    <div style={{display:"flex",gap:4}}>
+                      <select
+                        value={header.customer}
+                        onChange={(e)=>setHeader(h=>({...h, customer:e.target.value}))}
+                        style={{...iStyle, flex:1}}
+                      >
+                        <option value="">Select</option>
+                        {articleList.map((a,i)=>(
+                          <option key={i} value={a.customer}>{a.customer}</option>
+                        ))}
+                      </select>
+
+                      <button onClick={()=>{
+                        if(!newCustomer) return;
+                        setArticleList(prev=>[...prev,{article:header.article, customer:newCustomer}]);
+                        setHeader(h=>({...h, customer:newCustomer}));
+                        setNewCustomer("");
+                      }}>
+                        +
+                      </button>
+                    </div>
+
+                    {/* ✅ NEW INPUT */}
+                    <input
+                      placeholder="New Customer"
+                      value={newCustomer}
+                      onChange={(e)=>setNewCustomer(e.target.value)}
+                      style={{...iStyle, marginTop:4}}
+                    />
+                  </div>
+
+                ) : k === "rev" ? (
+
+                  <div>
+                    <div style={{display:"flex",gap:4}}>
+                      <select
+                        value={header.rev}
+                        onChange={(e)=>setHeader(h=>({...h, rev:e.target.value}))}
+                        style={{...iStyle, flex:1}}
+                      >
+                        <option value="">Select</option>
+                        {revisionList.map((r,i)=>(
+                          <option key={i}>{r}</option>
+                        ))}
+                      </select>
+
+                      <button onClick={()=>{
+                        if(!newRevision) return;
+                        setRevisionList(prev=>[...prev,newRevision]);
+                        setHeader(h=>({...h, rev:newRevision}));
+                        setNewRevision("");
+                      }}>
+                        +
+                      </button>
+                    </div>
+
+                    {/* ✅ NEW INPUT */}
+                    <input
+                      placeholder="New Revision"
+                      value={newRevision}
+                      onChange={(e)=>setNewRevision(e.target.value)}
+                      style={{...iStyle, marginTop:4}}
+                    />
+                  </div>
+
+                ) : (
+
+                  <input
+                    value={header[k]}
+                    onChange={(e)=>setHeader(h=>({...h, [k]:e.target.value}))}
+                    style={{...iStyle}}
+                    placeholder="—"
+                  />
+
+                )}
+
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── SUMMARY CARDS ────────────────────────────────────── */}
+      <div style={{display:"flex",borderBottom:"2px solid #dce8f8",flexWrap:"wrap",background:"#fff",boxShadow:"0 2px 10px rgba(30,58,95,.06)"}}>
+        <div style={{padding:"14px 22px",borderRight:"1px solid #dde8f8",background:"linear-gradient(135deg,#f5f0ff,#ede8ff)",minWidth:155}}>
+          <div style={{fontSize:8,color:"#7c3aed",letterSpacing:2,fontWeight:800,marginBottom:3}}>NO. OF SHEETS</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:800,color:"#6d28d9",lineHeight:1}}>{totals.totalSheets}</div>
+          <div style={{fontSize:8,color:"#a78bfa",marginTop:3,letterSpacing:1}}>AUTO-SUM</div>
+        </div>
+        {showMetric==="sqm"&&(
+          <div style={{padding:"14px 22px",borderRight:"1px solid #dde8f8",background:"linear-gradient(135deg,#eff6ff,#dbeafe)",minWidth:155,animation:"fadeIn .2s ease"}}>
+            <div style={{fontSize:8,color:"#1d4ed8",letterSpacing:2,fontWeight:800}}>TOTAL SQM</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:800,color:"#1d4ed8",lineHeight:1,marginTop:3}}>{totals.totalSqm.toFixed(3)}<span style={{fontSize:11,marginLeft:4,color:"#93c5fd"}}>m²</span></div>
+          </div>
+        )}
+        {showMetric==="vol"&&(
+          <div style={{padding:"14px 22px",borderRight:"1px solid #dde8f8",background:"linear-gradient(135deg,#f0fdf4,#dcfce7)",minWidth:165,animation:"fadeIn .2s ease"}}>
+            <div style={{fontSize:8,color:"#15803d",letterSpacing:2,fontWeight:800}}>TOTAL VOLUME</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:800,color:"#15803d",lineHeight:1,marginTop:3}}>{totals.totalVol.toFixed(3)}<span style={{fontSize:11,marginLeft:4,color:"#86efac"}}>m³</span></div>
+          </div>
+        )}
+        {showMetric==="wt"&&(
+          <div style={{padding:"14px 22px",borderRight:"1px solid #dde8f8",background:"linear-gradient(135deg,#fffbeb,#fef3c7)",minWidth:155,animation:"fadeIn .2s ease"}}>
+            <div style={{fontSize:8,color:"#b45309",letterSpacing:2,fontWeight:800}}>TOTAL WEIGHT</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:800,color:"#b45309",lineHeight:1,marginTop:3}}>{totals.totalWt.toFixed(3)}<span style={{fontSize:11,marginLeft:4,color:"#fbbf24"}}>kg</span></div>
+          </div>
+        )}
+        <div style={{padding:"14px 22px",borderRight:"1px solid #dde8f8",background:"linear-gradient(135deg,#fff7ed,#ffe4bc)",minWidth:155}}>
+          <div style={{fontSize:8,color:"#c2410c",letterSpacing:2,fontWeight:800}}>GRAND TOTAL</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:30,fontWeight:800,color:"#ea580c",lineHeight:1,marginTop:3}}>{totals.total.toFixed(3)}<span style={{fontSize:11,marginLeft:4,color:"#fb923c"}}>kg</span></div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",padding:"0 22px",marginLeft:"auto",gap:6}}>
+          <span style={{fontSize:8,color:"#94a3b8",letterSpacing:.5,fontWeight:600}}>VIEW</span>
+          {[["sheets","SHEETS","#1e3a5f","#e8f0fb"],["sqm","SQM","#1d4ed8","#eff6ff"],["vol","VOL","#15803d","#f0fdf4"],["wt","WT","#b45309","#fff7ed"]].map(([k,l,c,bg])=>(
+            <div key={k} onClick={()=>setShowMetric(k)} style={{padding:"5px 12px",fontSize:9,borderRadius:5,cursor:"pointer",fontWeight:800,border:`1.5px solid ${showMetric===k?c:"#d0dcea"}`,background:showMetric===k?bg:"#f8fafc",color:showMetric===k?c:"#94a3b8",transition:"all .15s",letterSpacing:.5}}>{l}</div>
+          ))}
+        </div>
+      </div>
+      {/* ── TOOLBAR ──────────────────────────────────────────── */}
+      <div style={{padding:"10px 20px",display:"flex",gap:8,alignItems:"center",background:"#f0f5fb",borderBottom:"1px solid #d4e0f0",flexWrap:"wrap"}}>
+        <input placeholder="🔍  Search description / supplier…" value={search} onChange={e=>setSearch(e.target.value)} style={{...iStyle,width:240,borderRadius:5,background:"#fff",borderColor:"#c8d8ee"}}/>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{...iStyle,width:160,borderRadius:5,background:"#fff",borderColor:"#c8d8ee"}}>
+          <option value="ALL">ALL TYPES</option>
+          {matNames.map(t=><option key={t}>{t}</option>)}
+        </select>
+        <div style={{fontSize:9,color:"#7a9bc4",display:"flex",gap:6,alignItems:"center"}}>
+          <span style={{background:"#ede9fe",color:"#7c3aed",border:"1px solid #c4b5f4",borderRadius:4,padding:"3px 8px",fontWeight:700,letterSpacing:.5}}>✏ SHEETS</span>
+          click cell to enter
+          <span style={{color:"#c8d8ee"}}>|</span>
+          <span style={{background:"#fff7ed",color:"#c2410c",border:"1px solid #fed7aa",borderRadius:4,padding:"3px 8px",fontWeight:700,letterSpacing:.5}}>AUTO</span>
+          SQM · VOL · WT
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+          <button onClick={()=>{if(canUndo){undoRows();showToast("Undone");}}} disabled={!canUndo}
+            style={{background:canUndo?"#fff":"#f8fafc",color:canUndo?"#4a6fa8":"#b0c0d8",border:"1.5px solid "+(canUndo?"#c8d8ee":"#e4eaf4"),padding:"5px 12px",fontSize:10,fontFamily:"inherit",fontWeight:700,cursor:canUndo?"pointer":"not-allowed",borderRadius:5}}>↩ UNDO</button>
+          <button onClick={addRow} style={{...btnPrimary,borderRadius:5,padding:"6px 16px",boxShadow:"0 2px 6px rgba(230,146,10,.25)"}}>+ ADD ROW</button>
+        </div>
+      </div>
+
+      {/* ── TABLE ────────────────────────────────────────────── */}
+      <div style={{overflowX:"auto",boxShadow:"0 1px 4px rgba(30,58,95,.07)"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,background:"#fff"}}>
+          <thead>
+            <tr style={{background:"#dbe8f8",borderBottom:"1px solid #b8cfe8"}}>
+              <th colSpan={6} style={{...TH,background:"#dbe8f8",color:"#3b5a8a",fontSize:8,fontWeight:800,letterSpacing:1.2,borderRight:"2px solid #b0c8e4"}}>MATERIAL INFO</th>
+              <th colSpan={4} style={{...TH,background:"#ede8fb",color:"#6b3fb5",fontSize:8,fontWeight:800,letterSpacing:1.2,borderRight:"2px solid #c4b5f4"}}>SHEET SPECS (✏ edit row)</th>
+              {shellCols.map(c=>(
+                <th key={c.id} colSpan={1} style={{...TH,fontSize:8,fontWeight:800,letterSpacing:.8,background:c.color+"18",color:c.color,borderRight:"2px solid "+c.color+"55",borderBottom:"3px solid "+c.color,padding:"7px 10px",lineHeight:1.4,minWidth:110}}>
+                  <div style={{fontWeight:800,letterSpacing:.8}}>{c.label}</div>
+                  <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                    {c.itemCode
+                      ? <span style={{background:"#fff",color:c.color,border:"1px solid "+c.color+"66",borderRadius:3,padding:"1px 5px",fontSize:7,fontWeight:700,letterSpacing:.5}}>{c.itemCode}</span>
+                      : <span style={{color:c.color+"88",fontSize:7,fontStyle:"italic"}}>no code</span>
+                    }
+                    {c.itemRev && <span style={{background:c.color,color:"#fff",borderRadius:3,padding:"1px 5px",fontSize:7,fontWeight:700}}>Rev {c.itemRev}</span>}
+                  </div>
+                </th>
+              ))}
+              <th colSpan={4} style={{...TH,background:"#fff4e0",color:"#b8600a",fontSize:8,fontWeight:800,letterSpacing:1.2,borderRight:"1px solid #f0d0a0",borderBottom:"2px solid #e6920a88"}}>ROW TOTALS</th>
+              <th style={{...TH,background:"#f4f6fa",borderRight:"none"}}></th>
+            </tr>
+            <tr style={{background:"#f0f5ff",borderBottom:"2px solid #e6920a"}}>
+              <th style={{...TH,background:"#f0f5ff",color:"#4a6fa8"}}>SR</th>
+              <th style={{...TH,minWidth:160,background:"#f0f5ff",color:"#4a6fa8"}}>DESCRIPTION</th>
+              <th style={{...TH,background:"#f0f5ff",color:"#4a6fa8"}}>TYPE</th>
+              <th style={{...TH,background:"#f0f5ff",color:"#4a6fa8"}}>SUPPLIER</th>
+              <th style={{...TH,background:"#f0f5ff",color:"#4a6fa8"}}>FINISHING</th>
+              <th style={{...TH,background:"#f0f5ff",color:"#4a6fa8",borderRight:"2px solid #ccd6ee"}}>SURFACE</th>
+              <th style={{...TH,background:"#ede8fb",color:"#6b3fb5"}}>L(m)</th>
+              <th style={{...TH,background:"#ede8fb",color:"#6b3fb5"}}>W(m)</th>
+              <th style={{...TH,background:"#ede8fb",color:"#6b3fb5"}}>Th(m)</th>
+              <th style={{...TH,background:"#ede8fb",color:"#6b3fb5",borderRight:"2px solid #c4b5f4"}}>DENS</th>
+              {shellCols.map(c=>(
+                <th key={c.id+"s"} style={{...TH,color:c.color,background:c.color+"15",borderBottom:"2px solid "+c.color+"88",fontWeight:800,borderRight:"2px solid "+c.color+"44",minWidth:110,textAlign:"center"}}>
+                  <div>SHEETS</div>
+                  <div style={{fontSize:7,fontWeight:700,marginTop:2,color:showMetric==="sheets"?c.color:showMetric==="sqm"?"#b8600a":showMetric==="vol"?"#2d8a3e":"#e6920a",letterSpacing:.3}}>{showMetric==="sheets"?"NO. SHEETS":showMetric==="sqm"?"SQM m²":showMetric==="vol"?"VOL m³":"WT kg"}</div>
+                </th>
+              ))}
+              <th style={{...TH,color:"#6b3fb5",background:"#ede8fb"}}>SHEETS</th>
+              <th style={{...TH,color:"#2563a8",background:"#e8f4ff"}}>SQM m²</th>
+              <th style={{...TH,color:"#2d8a3e",background:"#edfff2"}}>VOL m³</th>
+              <th style={{...TH,color:"#b8600a",background:"#fff4e0",borderRight:"1px solid #e8d5b0"}}>WT kg</th>
+              <th style={{...TH,background:"#f4f6fa",borderRight:"none"}}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r,idx)=>{
+              const acc=getAccent(r.type,matTypes), bg=getRowBg(r.type,matTypes);
+              return (
+                <tr key={r.id} className="row-tr fi" style={{background:bg,borderBottom:`1px solid ${acc}22`}}>
+                  <td style={TD}><span style={{color:"#bbb"}}>{idx+1}</span></td>
+                  <td style={{...TD,maxWidth:180}}><div style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:600}}>{r.description||<span style={{color:"#ccc"}}>—</span>}</div></td>
+                  <td style={{...TD,padding:"3px 6px"}}>
+                    {showMetric==="sheets"
+                      ?<select value={r.type} onChange={e=>{
+                          const newType=e.target.value;
+                          const mt=matTypes.find(m=>m.name===newType);
+                          setRows(prev=>prev.map(row=>row.id===r.id?{...row,type:newType,...(mt?{length:mt.length,width:mt.width,density:mt.density}:{})}:row));
+                        }}
+                        style={{background:acc+"12",color:acc,border:"1.5px solid "+acc+"55",borderRadius:4,fontSize:9,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",padding:"3px 6px",cursor:"pointer",outline:"none",maxWidth:130}}>
+                        {matNames.map(n=><option key={n} value={n}>{n}</option>)}
+                      </select>
+                      :<span style={{background:acc+"18",color:acc,padding:"2px 5px",borderRadius:3,fontSize:9,fontWeight:700,border:`1px solid ${acc}44`}}>{r.type}</span>
+                    }
+                  </td>
+                  <td style={TD}>{r.supplier||<span style={{color:"#ccc"}}>—</span>}</td>
+                  <td style={TD}>{r.finishing||<span style={{color:"#ccc"}}>—</span>}</td>
+                  <td style={{...TD,borderRight:"2px solid #ddd",color:"#888"}}>{r.surface}</td>
+                  <td style={{...TD,color:"#888"}}>{r.length.toFixed(2)}</td>
+                  <td style={{...TD,color:"#888"}}>{r.width.toFixed(2)}</td>
+                  <td style={{...TD,color:"#888"}}>{r.thickness.toFixed(3)}</td>
+                  <td style={{...TD,color:"#888",borderRight:"2px solid #c8b4ff"}}>{r.density}</td>
+                  {shellCols.map(c=>{
+                    const st=r.colStats[c.id]||{sheets:0,sqm:0,vol:0,wt:0};
+                    const isActive=inlineCell&&inlineCell.rowId===r.id&&inlineCell.colId===c.id;
+                    const mv=showMetric==="sqm"?st.sqm:showMetric==="vol"?st.vol:st.wt;
+                    const mvFmt=showMetric==="sqm"?mv.toFixed(3):showMetric==="vol"?mv.toFixed(3):mv.toFixed(3);
+                    const mvBase=showMetric==="sqm"?(st.sqmBase??st.sqm):showMetric==="vol"?(st.volBase??st.vol):(st.wtBase??st.wt);
+                    const mvBaseFmt=extraPct>0?(showMetric==="sqm"?mvBase.toFixed(3):showMetric==="vol"?mvBase.toFixed(3):mvBase.toFixed(3)):null;
+                    return (
+                      <td key={c.id} style={{...TD,textAlign:"center",background:bg,borderRight:"2px solid "+c.color+"33",padding:"4px 6px",cursor:showMetric==="sheets"?"pointer":"default"}} onClick={()=>showMetric==="sheets"&&!isActive&&startInline(r.id,c.id,r[c.id]||0)}>
+                        {isActive&&showMetric==="sheets"
+                          ?<input autoFocus className="cell-input" type="number" min={0} step="0.01" value={inlineVal} onChange={e=>setInlineVal(e.target.value)} onBlur={commitInline} onKeyDown={e=>{if(e.key==="Enter")commitInline();if(e.key==="Escape"){setInlineCell(null);setInlineVal("");}}} onClick={e=>e.stopPropagation()}/>
+                          :<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:28}}>
+                            {showMetric==="sheets"
+                              ?<span style={{background:c.color+"18",color:c.color,fontWeight:800,fontSize:13,borderRadius:3,padding:"2px 10px",border:"1px solid "+c.color+"33",minWidth:32,textAlign:"center"}}>{parseFloat((r[c.id]||0).toFixed(2))}</span>
+                              :(st.sheets>0
+                                ?<div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
+                                  <span style={{fontWeight:700,fontSize:12,color:extraPct>0?"#e6920a":showMetric==="sqm"?"#b8600a":showMetric==="vol"?"#2d8a3e":"#e6920a"}}>{mvFmt}</span>
+                                  {extraPct>0&&mvBaseFmt&&<span style={{fontSize:7,color:"#94a3b8",textDecoration:"line-through",lineHeight:1.2}}>{mvBaseFmt}</span>}
+                                </div>
+                                :<span style={{color:"#ddd",fontSize:11}}>—</span>
+                              )
+                            }
+                          </div>
+                        }
+                      </td>
+                    );
+                  })}
+                  <td style={{...TD,color:"#7c3aed",fontWeight:700,borderLeft:"2px solid #7c3aed22"}}>{r.totalSheets}</td>
+                  <td style={{...TD,color:"#1a6fa8",fontWeight:700}}>{(r.totalSqm||0).toFixed(3)}</td>
+                  <td style={{...TD,color:"#2d8a3e",fontWeight:700}}>{(r.totalVol||0).toFixed(3)}</td>
+                  <td style={{...TD,color:"#b8600a",fontWeight:700}}>{(r.totalWt||0).toFixed(3)}</td>
+                  <td style={{...TD,whiteSpace:"nowrap"}}>
+                    <button className="act-btn" title="Edit" onClick={()=>openEdit(r)} style={btnSmall}>✏</button>
+                    <button className="act-btn" title="Duplicate" onClick={()=>dupRow(r)} style={{...btnSmall,marginLeft:3}}>⧉</button>
+                    <button className="act-btn" title="Delete" onClick={()=>deleteRow(r.id)} style={{...btnSmall,marginLeft:3,borderColor:"#e74c3c",color:"#e74c3c"}}>✕</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{background:"#f0f5ff",borderTop:"2px solid #e6920a"}}>
+              <td colSpan={6} style={{...TD,background:"#e8f0fb",color:"#e6920a",fontWeight:800,fontSize:10,letterSpacing:1,borderBottom:"none"}}>TOTALS</td>
+              <td colSpan={4} style={{...TD,background:"#ede8fb",borderBottom:"none"}}/>
+              {shellCols.map(c=>{
+                const ct=totals.colTotals[c.id]||{sheets:0,sqm:0,vol:0,wt:0};
+                const mv=showMetric==="sqm"?ct.sqm:showMetric==="vol"?ct.vol:ct.wt;
+                const mvFmt=showMetric==="sqm"?mv.toFixed(3):showMetric==="vol"?mv.toFixed(3):mv.toFixed(3);
+                const mvBaseT=showMetric==="sqm"?(ct.sqmBase??ct.sqm):showMetric==="vol"?(ct.volBase??ct.vol):(ct.wtBase??ct.wt);
+                const mvBaseFmtT=extraPct>0?(showMetric==="sqm"?mvBaseT.toFixed(3):showMetric==="vol"?mvBaseT.toFixed(3):mvBaseT.toFixed(3)):null;
+                return (
+                  <td key={c.id} style={{...TD,textAlign:"center",background:c.color+"12",borderRight:"2px solid "+c.color+"44",borderBottom:"none",padding:"4px 6px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:24}}>
+                      {showMetric==="sheets"
+                        ?<span style={{color:c.color,fontWeight:800,fontSize:13}}>{parseFloat((ct.sheets||0).toFixed(2))}</span>
+                        :<span style={{fontWeight:700,fontSize:12,color:showMetric==="sqm"?"#b8600a":showMetric==="vol"?"#2d8a3e":"#e6920a"}}>{mvFmt}</span>
+                      }
+                    </div>
+                  </td>
+                );
+              })}
+              <td style={{...TD,color:"#6b3fb5",fontWeight:800,background:"#ede8fb",borderBottom:"none"}}>{parseFloat((totals.totalSheets||0).toFixed(2))}</td>
+              <td style={{...TD,color:"#2563a8",fontWeight:800,background:"#e8f4ff",borderBottom:"none"}}>{totals.totalSqm.toFixed(3)}</td>
+              <td style={{...TD,color:"#2d8a3e",fontWeight:800,background:"#edfff2",borderBottom:"none"}}>{totals.totalVol.toFixed(3)}</td>
+              <td style={{...TD,color:"#b8600a",fontWeight:800,background:"#fff4e0",borderBottom:"none"}}>{totals.totalWt.toFixed(3)}</td>
+              <td style={{background:"#f4f6fa",borderBottom:"none"}}/>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* ── FOOTER ───────────────────────────────────────────── */}
+      <div style={{padding:"14px 20px 16px",background:"linear-gradient(180deg,#f8fbff,#eef4fc)",borderTop:"3px solid #e6920a",boxShadow:"0 -2px 8px rgba(30,58,95,.06)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,letterSpacing:2,color:"#4a6fa8"}}>TOTALS BY MATERIAL TYPE</div>
+          <div style={{flex:1,height:1,background:"#dce8f4"}}/>
+        </div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"stretch"}}>
+          {matTypes.map(m=>{
+            const rows=computed.filter(r=>r.type===m.name);
+            const sqm=rows.reduce((a,r)=>a+r.totalSqm,0);
+            const vol=rows.reduce((a,r)=>a+r.totalVol,0);
+            const wt=rows.reduce((a,r)=>a+r.totalWt,0);
+            if(wt===0&&sqm===0) return null;
+            return (
+              <div key={m.id} style={{background:"#fff",border:"1.5px solid "+m.color+"33",borderLeft:"3px solid "+m.color,borderRadius:6,padding:"9px 14px",minWidth:160,boxShadow:"0 1px 4px rgba(30,58,95,.06)"}}>
+                <div style={{fontSize:8,color:m.color,letterSpacing:1.2,fontWeight:800,marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif"}}>{m.name}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12}}>
+                    <span style={{fontSize:8,color:"#94a3b8",fontWeight:600,letterSpacing:.5}}>SQM</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:800,color:m.color,lineHeight:1}}>{sqm.toFixed(3)}<span style={{fontSize:8,color:"#bbb",marginLeft:2}}>m²</span></span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12}}>
+                    <span style={{fontSize:8,color:"#94a3b8",fontWeight:600,letterSpacing:.5}}>VOL</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:"#2d8a3e",lineHeight:1}}>{vol.toFixed(3)}<span style={{fontSize:8,color:"#bbb",marginLeft:2}}>m³</span></span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:12,borderTop:"1px solid "+m.color+"22",paddingTop:3,marginTop:1}}>
+                    <span style={{fontSize:8,color:"#94a3b8",fontWeight:600,letterSpacing:.5}}>WT</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:800,color:"#e6920a",lineHeight:1}}>{wt.toFixed(3)}<span style={{fontSize:8,color:"#bbb",marginLeft:2}}>kg</span></span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{marginLeft:"auto",background:"linear-gradient(135deg,#1e3a5f,#2d5a8e)",borderRadius:8,padding:"10px 20px",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"flex-end",minWidth:180,boxShadow:"0 2px 8px rgba(30,58,95,.18)"}}>
+            <div style={{fontSize:8,color:"rgba(255,255,255,.6)",letterSpacing:2,fontWeight:700,marginBottom:6}}>GRAND TOTAL</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:"#7dd3fc",marginBottom:2}}>{totals.totalSqm.toFixed(3)}<span style={{fontSize:9,color:"rgba(255,255,255,.45)",marginLeft:3}}>m²</span></div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"#6ee7b7",marginBottom:4}}>{totals.totalVol.toFixed(3)}<span style={{fontSize:9,color:"rgba(255,255,255,.45)",marginLeft:3}}>m³</span></div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:800,color:"#e6920a",lineHeight:1}}>{totals.total.toFixed(3)}<span style={{fontSize:10,color:"rgba(255,255,255,.5)",marginLeft:4,fontWeight:400}}>kg</span></div>
+          </div>
+        </div>
+      </div>
+
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL — MATERIAL TYPES MANAGER
+      ══════════════════════════════════════════════════════ */}
+      {activeModal==="matTypes"&&(
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setActiveModal(null);}}>
+          <div className="modal-box" style={{borderTop:"3px solid #9b3090",width:720,maxWidth:"95vw"}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14,alignItems:"center"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:20,color:"#1e3a5f",letterSpacing:2}}>🧱 MATERIAL TYPES</div>
+              <button onClick={()=>setActiveModal(null)} style={{background:"transparent",border:"none",color:"#bbb",fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:"#888",marginBottom:14,background:"#fcf5ff",padding:"8px 12px",borderRadius:4,border:"1px solid #9b309022"}}>
+              Define material types with standard sheet dimensions and density. Selecting a type on a row <strong>auto-fills L × W × Density</strong>.
+            </div>
+
+            {/* Existing types */}
+            <table style={{width:"100%",borderCollapse:"collapse",marginBottom:20,fontSize:11}}>
+              <thead>
+                <tr style={{background:"#e8f0fb"}}>
+                  {["","NAME","LENGTH (m)","WIDTH (m)","DENSITY (kg/m³)","ACTIONS"].map((h,i)=>(
+                    <th key={i} style={{...TH,padding:"7px 10px",fontSize:9}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matTypes.map(m=>(
+                  <tr key={m.id} style={{borderBottom:"1px solid #eee",background:editMatId===m.id?"#fdf6ff":"#fff"}}>
+                    <td style={{...TD,width:40,textAlign:"center"}}>
+                      <div style={{position:"relative",width:22,height:22,margin:"auto"}}>
+                        <div style={{width:22,height:22,borderRadius:"50%",background:m.color,border:"2px solid #ddd"}}/>
+                        {editMatId===m.id&&<input type="color" value={m.color} onChange={e=>updateMat(m.id,"color",e.target.value)} style={{position:"absolute",inset:0,opacity:0,cursor:"pointer"}}/>}
+                      </div>
+                    </td>
+                    <td style={TD}>
+                      {editMatId===m.id
+                        ?<input value={m.name} onChange={e=>updateMat(m.id,"name",e.target.value)} style={{...iStyle,width:130}}/>
+                        :<strong style={{color:m.color}}>{m.name}</strong>}
+                    </td>
+                    <td style={TD}>
+                      {editMatId===m.id
+                        ?<input type="number" value={m.length} onChange={e=>updateMat(m.id,"length",e.target.value)} style={{...iStyle,width:80}}/>
+                        :m.length.toFixed(2)}
+                    </td>
+                    <td style={TD}>
+                      {editMatId===m.id
+                        ?<input type="number" value={m.width} onChange={e=>updateMat(m.id,"width",e.target.value)} style={{...iStyle,width:80}}/>
+                        :m.width.toFixed(2)}
+                    </td>
+                    <td style={TD}>
+                      {editMatId===m.id
+                        ?<input type="number" value={m.density} onChange={e=>updateMat(m.id,"density",e.target.value)} style={{...iStyle,width:90}}/>
+                        :m.density}
+                    </td>
+                    <td style={{...TD,whiteSpace:"nowrap"}}>
+                      {editMatId===m.id
+                        ?<button onClick={()=>setEditMatId(null)} style={{...btnPrimary,padding:"3px 12px",fontSize:10}}>✓ Done</button>
+                        :<button onClick={()=>setEditMatId(m.id)} style={{...btnSmall,fontSize:10}}>✏ Edit</button>}
+                      <button onClick={()=>deleteMaterial(m.id)} title="Delete material type" style={{...btnSmall,marginLeft:5,borderColor:"#e74c3c",color:"#e74c3c",fontSize:10}}>✕ Del</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Add new */}
+            <div style={{borderTop:"2px solid #9b309022",paddingTop:14}}>
+              <div style={{fontSize:9,color:"#9b3090",letterSpacing:1,fontWeight:700,marginBottom:10}}>+ ADD NEW MATERIAL TYPE</div>
+              <div style={{display:"grid",gridTemplateColumns:"32px 1fr 100px 100px 120px 80px",gap:8,alignItems:"end"}}>
+                <div style={{position:"relative",paddingTop:16}}>
+                  <div style={{width:26,height:26,borderRadius:"50%",background:newMat.color,border:"2px solid #ddd",cursor:"pointer"}}/>
+                  <input type="color" value={newMat.color} onChange={e=>setNewMat(m=>({...m,color:e.target.value}))} style={{position:"absolute",inset:0,opacity:0,cursor:"pointer"}}/>
+                </div>
+                {[["name","NAME","text"],["length","LENGTH (m)","number"],["width","WIDTH (m)","number"],["density","DENSITY (kg/m³)","number"]].map(([k,l,t])=>(
+                  <div key={k}>
+                    <div style={{fontSize:8,color:"#aaa",marginBottom:3,fontWeight:600}}>{l}</div>
+                    <input type={t} value={newMat[k]} placeholder={k==="name"?"e.g. FOAM 50":""} onChange={e=>setNewMat(m=>({...m,[k]:t==="number"?parseFloat(e.target.value)||0:e.target.value}))} style={iStyle}/>
+                  </div>
+                ))}
+                <div style={{paddingTop:16}}>
+                  <button onClick={addMaterial} style={{...btnPrimary,background:"#9b3090",width:"100%",padding:"6px 0"}}>+ ADD</button>
+                </div>
+              </div>
+              <div style={{marginTop:8,display:"flex",gap:4,flexWrap:"wrap"}}>
+                {PALETTE.map(p=><div key={p} onClick={()=>setNewMat(m=>({...m,color:p}))} style={{width:16,height:16,borderRadius:"50%",background:p,cursor:"pointer",border:newMat.color===p?"2.5px solid #1e3a5f":"2px solid transparent"}}/>)}
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setActiveModal(null)} style={btnPrimary}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL — COLUMN MANAGER
+      ══════════════════════════════════════════════════════ */}
+      {activeModal==="columns"&&(
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setActiveModal(null);}}>
+          <div className="modal-box" style={{borderTop:"3px solid #e6920a",width:600,maxWidth:"95vw"}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:18,color:"#1e3a5f",letterSpacing:2}}>⚙ MANAGE SHELL COLUMNS</div>
+              <button onClick={()=>setActiveModal(null)} style={{background:"transparent",border:"none",color:"#bbb",fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:"#7a9bc4",marginBottom:14,background:"#f0f5fb",padding:"10px 14px",borderRadius:6,border:"1px solid #d0dcea"}}>
+              Each column = one shell part (e.g. Suction Side, Pressure Side). Set its <strong>Item Code</strong> and <strong>Revision</strong> — these appear in the table header and export.
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:18}}>
+              {shellCols.map(c=>(
+                <div key={c.id} style={{background:"#fff",padding:"12px 16px",borderRadius:8,border:"2px solid "+c.color+"44",marginBottom:2,borderLeft:"4px solid "+c.color}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <div style={{position:"relative",flexShrink:0}}>
+                      <div style={{width:22,height:22,borderRadius:"50%",background:c.color,border:"2px solid #fff",boxShadow:"0 1px 4px rgba(0,0,0,.15)"}}/>
+                      <input type="color" value={c.color} onChange={e=>recolorShellCol(c.id,e.target.value)} style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:22,height:22}}/>
+                    </div>
+                    <input value={c.label} onChange={e=>renameShellCol(c.id,e.target.value)} style={{...iStyle,flex:1,fontWeight:700,fontSize:12,color:c.color,borderColor:c.color+"44",background:c.color+"08"}} placeholder="Column label"/>
+                    <button onClick={()=>removeShellCol(c.id)} style={{background:"#fff5f5",border:"1.5px solid #fca5a5",color:"#e74c3c",padding:"4px 11px",fontSize:10,borderRadius:5,cursor:"pointer",flexShrink:0,fontWeight:700}}>✕ Remove</button>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:8}}>
+                    <div>
+                      <div style={{fontSize:8,color:"#7a9bc4",fontWeight:700,letterSpacing:1,marginBottom:4}}>ITEM CODE</div>
+                      <input value={c.itemCode||""} onChange={e=>updateColCode(c.id,e.target.value)} style={{...iStyle,fontSize:11}} placeholder="e.g. SK-SUCT-001"/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:8,color:"#7a9bc4",fontWeight:700,letterSpacing:1,marginBottom:4}}>REVISION</div>
+                      <input value={c.itemRev||""} onChange={e=>updateColRev(c.id,e.target.value)} style={{...iStyle,fontSize:11}} placeholder="A"/>
+                    </div>
+                  </div>
+                  {(c.itemCode||c.itemRev)&&(
+                    <div style={{marginTop:8,display:"flex",gap:6,alignItems:"center"}}>
+                      <span style={{fontSize:8,color:"#94a3b8"}}>PREVIEW:</span>
+                      {c.itemCode&&<span style={{background:c.color+"15",color:c.color,border:"1px solid "+c.color+"44",borderRadius:4,padding:"2px 8px",fontSize:9,fontWeight:700}}>{c.itemCode}</span>}
+                      {c.itemRev&&<span style={{background:c.color,color:"#fff",borderRadius:4,padding:"2px 8px",fontSize:9,fontWeight:700}}>Rev {c.itemRev}</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {shellCols.length===0&&<div style={{color:"#ccc",fontSize:11,textAlign:"center",padding:"12px 0"}}>No columns yet.</div>}
+            </div>
+            <div style={{borderTop:"2px solid #f0f4fa",paddingTop:16}}>
+              <div style={{fontSize:9,color:"#4a6fa8",letterSpacing:1.5,marginBottom:12,fontWeight:800}}>+ ADD NEW COLUMN</div>
+              <div style={{display:"grid",gridTemplateColumns:"auto 1fr 120px 100px",gap:8,alignItems:"end",marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:8,color:"#7a9bc4",fontWeight:700,letterSpacing:1,marginBottom:4}}>COLOR</div>
+                  <div style={{display:"flex",gap:3,flexWrap:"wrap",maxWidth:80}}>{PALETTE.map(p=><div key={p} onClick={()=>setNewColColor(p)} style={{width:16,height:16,borderRadius:"50%",background:p,cursor:"pointer",border:newColColor===p?"2.5px solid #1e3a5f":"1.5px solid transparent",boxShadow:newColColor===p?"0 0 0 1px #fff inset":""}}/>)}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:8,color:"#7a9bc4",fontWeight:700,letterSpacing:1,marginBottom:4}}>LABEL</div>
+                  <input value={newColLabel} onChange={e=>setNewColLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addShellCol()} placeholder="e.g. Root – PET" style={{...iStyle,fontWeight:600}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:8,color:"#7a9bc4",fontWeight:700,letterSpacing:1,marginBottom:4}}>ITEM CODE</div>
+                  <input value={newColCode} onChange={e=>setNewColCode(e.target.value)} placeholder="SK-001" style={{...iStyle}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:8,color:"#7a9bc4",fontWeight:700,letterSpacing:1,marginBottom:4}}>REVISION</div>
+                  <input value={newColRev} onChange={e=>setNewColRev(e.target.value)} placeholder="A" style={{...iStyle}}/>
+                </div>
+              </div>
+              <button onClick={()=>{
+                if(!newColLabel.trim())return;
+                const id="sc_"+Date.now();
+                setShellCols(p=>[...p,{id,label:newColLabel.trim(),color:newColColor,itemCode:newColCode,itemRev:newColRev||"A"}]);
+                setRows(p=>p.map(r=>({...r,[id]:0})));
+                setNewColLabel(""); setNewColCode(""); setNewColRev("A");
+              }} style={{...btnPrimary,width:"100%",marginBottom:14}}>+ Add Column</button>
+              <div>
+                <div style={{fontSize:9,color:"#94a3b8",letterSpacing:1,marginBottom:6,fontWeight:600}}>QUICK PRESETS</div>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                  {[["Suction - BALSA","#c87530"],["Suction - PET","#2563a8"],["Pressure - PET","#2563a8"],["Pressure - BALSA","#c87530"],["LE Reinf - PET","#2d8a3e"],["TE Reinf - BALSA","#c87530"],["Root - PET","#9b3090"],["Web - BALSA","#c87530"]].map(([label,color])=>{
+                    const already=shellCols.some(c=>c.label===label);
+                    return <button key={label} disabled={already} onClick={()=>{if(!already){const id="sc_"+Date.now();setShellCols(p=>[...p,{id,label,color,itemCode:"",itemRev:"A"}]);setRows(p=>p.map(r=>({...r,[id]:0})));} }} style={{background:already?"#f8fafc":"#fff",color:already?"#c8d8ee":color,border:`1.5px solid ${already?"#e4eaf4":color}`,padding:"4px 10px",fontSize:9,borderRadius:4,cursor:already?"not-allowed":"pointer",fontWeight:700,opacity:already?0.6:1}}>{already?"✓ ":""}{label}</button>;
+                  })}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}><button onClick={()=>setActiveModal(null)} style={btnPrimary}>Done</button></div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL — EXCEL IMPORT
+      ══════════════════════════════════════════════════════ */}
+      {activeModal==="importExcel"&&(
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setActiveModal(null);}}>
+          <div className="modal-box" style={{borderTop:"3px solid #2d8a3e",width:800,maxWidth:"95vw"}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:18,color:"#1e3a5f",letterSpacing:2}}>📥 IMPORT FROM EXCEL</div>
+              <button onClick={()=>setActiveModal(null)} style={{background:"transparent",border:"none",color:"#bbb",fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:"#888",marginBottom:14,background:"#edfff2",padding:"8px 12px",borderRadius:4,border:"1px solid #2d8a3e22"}}>
+              File: <strong style={{color:"#2d8a3e"}}>{importFile}</strong> — <strong>{importRows.length}</strong> data rows. Map your Excel columns to BOM fields below. Unmapped fields will use defaults.
+            </div>
+
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:9,color:"#2d8a3e",letterSpacing:1,fontWeight:700,marginBottom:10}}>COLUMN MAPPING — Excel column → BOM field</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                {[
+                  ["description","DESCRIPTION"],
+                  ["type","MATERIAL TYPE"],
+                  ["supplier","SUPPLIER"],
+                  ["finishing","FINISHING"],
+                  ["surface","SURFACE"],
+                  ["length","LENGTH (m)"],
+                  ["width","WIDTH (m)"],
+                  ["thickness","THICKNESS (m)"],
+                  ["density","DENSITY (kg/m³)"],
+                  ...shellCols.map(c=>[c.id, c.label+" SHEETS"])
+                ].map(([field,label])=>(
+                  <div key={field}>
+                    <div style={{fontSize:8,color:"#888",marginBottom:2,fontWeight:600}}>{label}</div>
+                    <select value={importMapping[field]!=null?importMapping[field]:""} onChange={e=>setImportMapping(m=>({...m,[field]:e.target.value!==""?parseInt(e.target.value):undefined}))} style={{...iStyle,fontSize:10,padding:"4px 8px"}}>
+                      <option value="">— skip —</option>
+                      {importHeaders.map((h,i)=><option key={i} value={i}>{h||`Col ${i+1}`}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {importRows.length>0&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:9,color:"#aaa",letterSpacing:1,fontWeight:700,marginBottom:6}}>DATA PREVIEW — first 3 rows</div>
+                <div style={{overflowX:"auto",borderRadius:4,border:"1px solid #dde1ea"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:9}}>
+                    <thead>
+                      <tr style={{background:"#e8f0fb"}}>
+                        {importHeaders.map((h,i)=><th key={i} style={{...TH,fontSize:8,padding:"5px 8px"}}>{h||`Col ${i+1}`}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.slice(0,3).map((row,ri)=>(
+                        <tr key={ri} style={{borderBottom:"1px solid #eee"}}>
+                          {row.map((cell,ci)=><td key={ci} style={{...TD,fontSize:9,padding:"4px 8px"}}>{String(cell)}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
+              <span style={{fontSize:9,color:"#aaa",marginRight:4}}>Import mode:</span>
+              <button onClick={()=>setActiveModal(null)} style={{...btnSmall,padding:"7px 16px"}}>CANCEL</button>
+              <button onClick={()=>applyImport("append")} style={{...btnPrimary,background:"#2563a8"}}>+ APPEND TO TABLE</button>
+              <button onClick={()=>applyImport("replace")} style={{...btnPrimary,background:"#2d8a3e"}}>⟳ REPLACE ALL ROWS</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL — EDIT ROW SPECS
+      ══════════════════════════════════════════════════════ */}
+      {editingId&&form&&(
+        <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)closeEdit();}}>
+          <div className="modal-box" style={{borderTop:"3px solid #7c3aed",width:660}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:18,color:"#1e3a5f",letterSpacing:2}}>EDIT SHEET SPECIFICATIONS</div>
+              <button onClick={closeEdit} style={{background:"transparent",border:"none",color:"#bbb",fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{fontSize:10,color:"#888",marginBottom:14,background:"#f5f0ff",padding:"8px 12px",borderRadius:4,border:"1px solid #7c3aed22"}}>
+              Selecting a <strong>Material Type</strong> auto-fills Length, Width &amp; Density from the Material Types library.
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {[["description","DESCRIPTION","text"],["supplier","SUPPLIER","text"],["finishing","FINISHING","text"],["length","LENGTH (m)","number"],["width","WIDTH (m)","number"],["thickness","THICKNESS (m)","number"],["density","DENSITY (kg/m³)","number"]].map(([k,l,t])=>(
+                <div key={k} style={k==="description"?{gridColumn:"1/-1"}:{}}>
+                  <div style={{fontSize:9,color:"#aaa",letterSpacing:1,marginBottom:3,fontWeight:600}}>{l}</div>
+                  {fInp(k,t)}
+                </div>
+              ))}
+              <div>
+                <div style={{fontSize:9,color:"#aaa",letterSpacing:1,marginBottom:3,fontWeight:600}}>MATERIAL TYPE</div>
+                <select value={form.type} onChange={e=>handleTypeChange(e.target.value)} style={iStyle}>
+                  {matNames.map(o=><option key={o}>{o}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{fontSize:9,color:"#aaa",letterSpacing:1,marginBottom:3,fontWeight:600}}>SURFACE</div>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>
+                  {surfaces.map(s=>(
+                    <button key={s} onClick={()=>setForm(f=>({...f,surface:s}))}
+                      style={{padding:"4px 10px",fontSize:10,borderRadius:4,cursor:"pointer",fontFamily:"inherit",fontWeight:700,border:"1.5px solid "+(form.surface===s?"#e6920a":"#d0dcea"),background:form.surface===s?"#fff4e0":"#f8fafc",color:form.surface===s?"#e6920a":"#7a9bc4",transition:"all .12s"}}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:4,marginTop:2}}>
+                  <input value={newSurface} onChange={e=>setNewSurface(e.target.value.toUpperCase())} onKeyDown={e=>{if(e.key==="Enter"&&newSurface.trim()){setSurfaces(p=>[...p,newSurface.trim()]);setForm(f=>({...f,surface:newSurface.trim()}));setNewSurface("");}}} placeholder="+ Add surface type" style={{...iStyle,flex:1,fontSize:10,padding:"4px 8px"}}/>
+                  <button onClick={()=>{if(newSurface.trim()){setSurfaces(p=>[...p,newSurface.trim()]);setForm(f=>({...f,surface:newSurface.trim()}));setNewSurface("");}}} style={{background:"#e6920a",color:"#fff",border:"none",padding:"4px 12px",borderRadius:4,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Add</button>
+                </div>
+              </div>
+            </div>
+            <div style={{marginTop:14,borderTop:"1px solid #eee",paddingTop:12}}>
+              <div style={{fontSize:9,color:"#e6920a",letterSpacing:1,fontWeight:700,marginBottom:8}}>LIVE PREVIEW — AUTO-CALC PER COLUMN</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+                {shellCols.map(c=>{
+                  const sheets=rows.find(rr=>rr.id===editingId)?.[c.id]||0;
+                  const s=calcColStats(sheets,form,extraPct);
+                  return (
+                    <div key={c.id} style={{background:"#f7f8fb",border:`1px solid ${c.color}33`,borderRadius:4,padding:"8px 10px"}}>
+                      <div style={{fontSize:9,fontWeight:700,color:c.color,marginBottom:4}}>{c.label} <span style={{color:"#aaa",fontWeight:400}}>({sheets} sheets)</span></div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:4}}>
+                        {[["SQM",s.sqm.toFixed(3),"m²","#1a6fa8"],["VOL",s.vol.toFixed(3),"m³","#2d8a3e"],["WT",s.wt.toFixed(3),"kg","#b8600a"]].map(([l,v,u,cc])=>(
+                          <div key={l}>
+                            <div style={{fontSize:8,color:"#aaa"}}>{l}</div>
+                            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:800,color:cc}}>{v}<span style={{fontSize:8,color:"#bbb",marginLeft:2}}>{u}</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,marginTop:16,justifyContent:"flex-end"}}>
+              <button onClick={closeEdit} style={{...btnSmall,padding:"7px 18px"}}>CANCEL</button>
+              <button onClick={saveEdit} style={btnPrimary}>SAVE SPECS</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL — ANALYTICS
+      ══════════════════════════════════════════════════════ */}
+      {activeModal==="analytics"&&(
+        <AnalyticsModal
+          computed={computed}
+          shellCols={shellCols}
+          matTypes={matTypes}
+          totals={totals}
+          header={header}
+          onClose={()=>setActiveModal(null)}
+        />
+      )}
+
+      {/* ✅ APPROVE MODAL */}
+      {showApprove && (
+        <div className="modal-overlay" onClick={(e)=>{if(e.target===e.currentTarget)setShowApprove(false);}}>
+          <div className="modal-box" style={{width:320}}>
+
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontWeight:800}}>Approve BOM</div>
+              <button onClick={()=>setShowApprove(false)}>✕</button>
+            </div>
+
+            <input
+              placeholder="Enter Approver Name"
+              value={approver}
+              onChange={(e)=>setApprover(e.target.value)}
+              style={{...iStyle, width:"100%", marginBottom:10}}
+            />
+
+            <button
+              onClick={approveData}
+              style={{...btnPrimary, width:"100%"}}
+            >
+              Submit Approval
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── TOAST ── */}
+      {toast&&<div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = {hasError:false, error:null}; }
+  static getDerivedStateFromError(error) { return {hasError:true, error}; }
+  componentDidCatch(error, info) { console.error("BOM App Error:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{padding:40,fontFamily:"'JetBrains Mono',monospace",background:"#1e3a5f",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:"#fff",borderRadius:12,padding:32,maxWidth:560,textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.3)"}}>
+            <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+            <div style={{fontWeight:800,fontSize:16,color:"#1e3a5f",marginBottom:8}}>Something went wrong</div>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:20,lineHeight:1.6}}>{this.state.error?.message||"An unexpected error occurred"}</div>
+            <button onClick={()=>this.setState({hasError:false,error:null})} style={{background:"#e6920a",color:"#fff",border:"none",padding:"10px 24px",borderRadius:6,fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit",letterSpacing:1}}>
+              ↺ RECOVER
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<ErrorBoundary><App /></ErrorBoundary>);
+</script>
+</body>
+</html>

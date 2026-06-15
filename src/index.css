@@ -1,0 +1,145 @@
+/* Global CSS for SKAPS BOM Calculator */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #f0f4fa;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  color: #1e3a5f;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e8eaf0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e6920a;
+  border-radius: 3px;
+}
+
+input:focus,
+select:focus {
+  outline: none !important;
+  border-color: #e6920a !important;
+  box-shadow: 0 0 0 2px rgba(230, 146, 10, 0.13) !important;
+}
+
+.row-tr:hover td {
+  background-color: rgba(240, 245, 255, 0.7) !important;
+}
+
+.act-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.row-tr:hover .act-btn {
+  opacity: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fi {
+  animation: fadeIn 0.2s ease forwards;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.pulsing {
+  animation: pulse 0.8s infinite;
+}
+
+.cell-input {
+  background: #fff;
+  border: 2px solid #7c3aed;
+  color: #1e3a5f;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  width: 60px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.cell-input:focus {
+  outline: none;
+}
+
+.sv {
+  display: inline-block;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+  min-width: 38px;
+  text-align: center;
+}
+
+.sv:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 30, 60, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 24px 64px rgba(15, 30, 60, 0.18);
+  padding: 28px;
+  width: 660px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: #1e3a5f;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-left: 4px solid #e6920a;
+  z-index: 999;
+  animation: fadeIn 0.2s ease;
+  box-shadow: 0 4px 16px rgba(30, 58, 95, 0.35);
+}
