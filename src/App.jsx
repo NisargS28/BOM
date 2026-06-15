@@ -620,7 +620,9 @@ export default function App() {
         nonReturnableCols,
         returnableCols,
         nonReturnableAuxRows: nonReturnableRows,
-        returnableAuxRows: returnableRows
+        returnableAuxRows: returnableRows,
+        tentativeCycleRows,
+        productionCycleRows
       };
       await fetch(`${API_BASE_URL}/save`, {
         method: "POST",
@@ -649,7 +651,9 @@ export default function App() {
         nonReturnableCols,
         returnableCols,
         nonReturnableAuxRows: nonReturnableRows,
-        returnableAuxRows: returnableRows
+        returnableAuxRows: returnableRows,
+        tentativeCycleRows,
+        productionCycleRows
       };
       await fetch(`${API_BASE_URL}/approve`, {
         method: "POST",
@@ -680,7 +684,9 @@ export default function App() {
       nonReturnableCols,
       returnableCols,
       nonReturnableAuxRows: nonReturnableRows,
-      returnableAuxRows: returnableRows
+      returnableAuxRows: returnableRows,
+      tentativeCycleRows,
+      productionCycleRows
     };
     const data = { version: 4, savedAt: new Date().toISOString(), header: updatedHeader, rows, shellCols, showMetric, matTypes, surfaces, extraPct };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -709,11 +715,15 @@ export default function App() {
           setReturnableCols(d.header.returnableCols || DEFAULT_AUX_COLS);
           setNonReturnableRows(d.header.nonReturnableAuxRows || [mkNonReturnableRow(d.header.nonReturnableCols || DEFAULT_AUX_COLS)]);
           setReturnableRows(d.header.returnableAuxRows || [mkReturnableRow(d.header.returnableCols || DEFAULT_AUX_COLS)]);
+          setTentativeCycleRows(d.header.tentativeCycleRows || mkDefaultCycleTimeRows());
+          setProductionCycleRows(d.header.productionCycleRows || mkDefaultCycleTimeRows());
         } else {
           setNonReturnableCols(DEFAULT_AUX_COLS);
           setReturnableCols(DEFAULT_AUX_COLS);
           setNonReturnableRows([mkNonReturnableRow(DEFAULT_AUX_COLS)]);
           setReturnableRows([mkReturnableRow(DEFAULT_AUX_COLS)]);
+          setTentativeCycleRows(mkDefaultCycleTimeRows());
+          setProductionCycleRows(mkDefaultCycleTimeRows());
         }
         if (d.rows) setRows(d.rows);
         if (d.shellCols) setShellCols(d.shellCols);
@@ -974,6 +984,115 @@ export default function App() {
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       XLSX.utils.book_append_sheet(wb, ws, "Returnable Auxiliary");
       XLSX.writeFile(wb, `SKAPS_Returnable_Auxiliary_${header.article || "PROJECT"}_${header.rev || "A01"}.xlsx`);
+      setExporting(false);
+      setExportMsg("Exported!");
+      setTimeout(() => setExportMsg(""), 2500);
+      return;
+    }
+
+    if (selectedFormat === "Cycle Time - Tentative" || selectedFormat === "Cycle Time - Production") {
+      const isTentative = selectedFormat === "Cycle Time - Tentative";
+      const rowsToExport = isTentative ? tentativeCycleRows : productionCycleRows;
+      
+      const wsData = [
+        [isTentative ? "TENTATIVE CORE KIT CYCLE TIME" : "PRODUCTION CORE KIT CYCLE TIME"],
+        [
+          `ARTICLE: ${header.article || "—"}`, 
+          `CUSTOMER: ${header.customer || "—"}`, 
+          `REV: ${header.rev || "—"}`,
+          `PROJECT: ${header.projectName || "—"}`,
+          `MACHINE: ${header.machine || "—"}`
+        ],
+        [],
+        ["S.NO", "PART DESCRIPTION", "PART CODE", "NO OF PROGRAMS", "CNC TIME", "FINISHING TIME", "MANUAL OPERATIONS", "REPAIR KIT", "OTHERS"]
+      ];
+
+      const parse = (val) => {
+        if (!val || typeof val !== 'string') return 0;
+        const parts = val.split(':').map(Number);
+        if (parts.some(isNaN)) return 0;
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 1) return parts[0];
+        return 0;
+      };
+
+      const format = (seconds) => {
+        if (isNaN(seconds) || seconds <= 0) return "00:00:00";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(h)}:${pad(m)}:${pad(s)}`;
+      };
+
+      let totalProg = 0;
+      let totalCNC = 0;
+      let totalFinish = 0;
+      let totalManual = 0;
+      let totalRepair = 0;
+      let totalOthers = 0;
+
+      rowsToExport.forEach((r, idx) => {
+        const prog = parseInt(r.noOfPrograms) || 0;
+        totalProg += prog;
+        totalCNC += parse(r.cncTime);
+        totalFinish += parse(r.finishingTime);
+        totalManual += parse(r.manualOperations);
+        totalRepair += parse(r.repairKit);
+        totalOthers += parse(r.others);
+
+        wsData.push([
+          r.sno || idx + 1,
+          r.partDescription || "",
+          r.partCode || "",
+          prog,
+          r.cncTime || "00:00:00",
+          r.finishingTime || "00:00:00",
+          r.manualOperations || "00:00:00",
+          r.repairKit || "00:00:00",
+          r.others || "00:00:00"
+        ]);
+      });
+
+      wsData.push([
+        "TOTAL",
+        "",
+        "",
+        totalProg,
+        format(totalCNC),
+        format(totalFinish),
+        format(totalManual),
+        format(totalRepair),
+        format(totalOthers)
+      ]);
+
+      const grandSeconds = totalCNC + totalFinish + totalManual + totalRepair + totalOthers;
+      wsData.push([
+        isTentative ? "TOTAL THEORETICAL CYCLE TIME" : "TOTAL ACTUAL CYCLE TIME",
+        "",
+        "",
+        "",
+        format(grandSeconds),
+        "",
+        "",
+        "",
+        ""
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      
+      const totalIdx = wsData.length - 2;
+      const grandIdx = wsData.length - 1;
+      
+      ws['!merges'] = [
+        { s: { r: totalIdx, c: 0 }, e: { r: totalIdx, c: 2 } },
+        { s: { r: grandIdx, c: 0 }, e: { r: grandIdx, c: 3 } },
+        { s: { r: grandIdx, c: 4 }, e: { r: grandIdx, c: 8 } }
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, isTentative ? "Tentative Cycle Time" : "Production Cycle Time");
+      XLSX.writeFile(wb, `SKAPS_Cycle_Time_${isTentative ? "Tentative" : "Production"}_${header.article || "PROJECT"}_${header.rev || "A01"}.xlsx`);
       setExporting(false);
       setExportMsg("Exported!");
       setTimeout(() => setExportMsg(""), 2500);
@@ -1693,6 +1812,52 @@ export default function App() {
           showToast={showToast}
           header={header}
           auxCols={returnableCols}
+        />
+      ) : selectedFormat === "Cycle Time - Tentative" ? (
+        <TentativeCycleTimeTable
+          filtered={filteredTentativeCycle}
+          setRows={setTentativeCycleRows}
+          canUndo={canUndoTentativeCycleRows}
+          undoRows={undoTentativeCycleRows}
+          addRow={addRow}
+          search={search}
+          setSearch={setSearch}
+          inlineCell={inlineCell}
+          setInlineCell={setInlineCell}
+          inlineVal={inlineVal}
+          setInlineVal={setInlineVal}
+          startInline={startInline}
+          commitInline={commitInline}
+          openEdit={openEdit}
+          dupRow={dupRow}
+          deleteRow={deleteRow}
+          showToast={showToast}
+          headerData={header}
+          setHeaderData={setHeader}
+          articleName={header.article}
+        />
+      ) : selectedFormat === "Cycle Time - Production" ? (
+        <ProductionCycleTimeTable
+          filtered={filteredProductionCycle}
+          setRows={setProductionCycleRows}
+          canUndo={canUndoProductionCycleRows}
+          undoRows={undoProductionCycleRows}
+          addRow={addRow}
+          search={search}
+          setSearch={setSearch}
+          inlineCell={inlineCell}
+          setInlineCell={setInlineCell}
+          inlineVal={inlineVal}
+          setInlineVal={setInlineVal}
+          startInline={startInline}
+          commitInline={commitInline}
+          openEdit={openEdit}
+          dupRow={dupRow}
+          deleteRow={deleteRow}
+          showToast={showToast}
+          headerData={header}
+          setHeaderData={setHeader}
+          articleName={header.article}
         />
       ) : (
         <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#fff", margin: 20, borderRadius: 10, border: "1.5px dashed #c8d8ee", minHeight: 300 }}>

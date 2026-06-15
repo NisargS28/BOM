@@ -179,7 +179,7 @@ export default function CycleTimeTable({
               <th colSpan={5} style={{ ...TH, background: "#fff4e0", color: "#b8600a", borderRight: "2px solid #000" }}>
                 {isTentative ? "THEORETICAL CYCLE TIME IN HH:MM:SS" : "ACTUAL CYCLE TIME IN HH:MM:SS"}
               </th>
-              <th style={{ ...TH, background: "#f4f6fa" }}>ACTIONS</th>
+              <th style={{ ...TH, background: "#f4f6fa" }}></th>
             </tr>
             <tr style={{ background: "#f0f5ff" }}>
               <th style={{ ...TH, textAlign: "center", width: 50 }}>S.NO</th>
@@ -191,7 +191,7 @@ export default function CycleTimeTable({
               <th style={{ ...TH, width: 120, textAlign: "right" }}>MANUAL OPERATIONS</th>
               <th style={{ ...TH, width: 100, textAlign: "right" }}>REPAIR KIT</th>
               <th style={{ ...TH, width: 100, textAlign: "right", borderRight: "2px solid #000" }}>OTHERS</th>
-              <th style={{ ...TH, width: 100 }}></th>
+              <th style={{ ...TH, width: 100 }}>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
