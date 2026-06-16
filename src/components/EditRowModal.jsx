@@ -150,26 +150,12 @@ export default function EditRowModal({
               <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>NO OF PROGRAMS</div>
               {fInp("noOfPrograms", "number")}
             </div>
-            <div>
-              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>CNC TIME (HH:MM:SS)</div>
-              {fInp("cncTime", "text")}
-            </div>
-            <div>
-              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>FINISHING TIME (HH:MM:SS)</div>
-              {fInp("finishingTime", "text")}
-            </div>
-            <div>
-              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>MANUAL OPERATIONS (HH:MM:SS)</div>
-              {fInp("manualOperations", "text")}
-            </div>
-            <div>
-              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>REPAIR KIT (HH:MM:SS)</div>
-              {fInp("repairKit", "text")}
-            </div>
-            <div>
-              <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>OTHERS (HH:MM:SS)</div>
-              {fInp("others", "text")}
-            </div>
+            {auxCols && auxCols.map(c => (
+              <div key={c.id}>
+                <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 1, marginBottom: 3, fontWeight: 600 }}>{c.label.toUpperCase()} (HH:MM:SS)</div>
+                {fInp(c.id, "text")}
+              </div>
+            ))}
           </div>
         ) : (
           /* Standard BOM Form */

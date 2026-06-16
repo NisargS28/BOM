@@ -54,18 +54,25 @@ export default function ColumnModal({
 }) {
   if (!isOpen) return null;
 
-  const isAuxiliary = selectedFormat && selectedFormat.includes("Auxiliary");
+  const isAuxiliary = selectedFormat && (selectedFormat.includes("Auxiliary") || selectedFormat.includes("Cycle Time"));
 
   if (isAuxiliary) {
+    const isCycleTime = selectedFormat.includes("Cycle Time");
     return (
       <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="modal-box" style={{ borderTop: "3px solid #e6920a", width: 500, maxWidth: "95vw" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 18, color: "#1e3a5f", letterSpacing: 2 }}>⚙ MANAGE BLADE ITEM COLUMNS</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 18, color: "#1e3a5f", letterSpacing: 2 }}>
+              {isCycleTime ? "⚙ MANAGE CYCLE TIME COLUMNS" : "⚙ MANAGE BLADE ITEM COLUMNS"}
+            </div>
             <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#bbb", fontSize: 20, cursor: "pointer" }}>✕</button>
           </div>
           <div style={{ fontSize: 10, color: "#7a9bc4", marginBottom: 14, background: "#f0f5fb", padding: "10px 14px", borderRadius: 6, border: "1px solid #d0dcea" }}>
-            Add, remove, or update the dynamic <strong>Blade Item</strong> quantity columns. These represent the quantity per blade.
+            {isCycleTime ? (
+              <>Add, remove, or update the dynamic <strong>Cycle Time</strong> columns. These represent time spent per task.</>
+            ) : (
+              <>Add, remove, or update the dynamic <strong>Blade Item</strong> quantity columns. These represent the quantity per blade.</>
+            )}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 18, maxHeight: "250px", overflowY: "auto" }}>
             {auxCols && auxCols.map((c, idx) => (
@@ -99,7 +106,7 @@ export default function ColumnModal({
                     setNewColLabel("");
                   }
                 }} 
-                placeholder="e.g. ITM 6" 
+                placeholder={isCycleTime ? "e.g. CNC TIME" : "e.g. ITM 6"} 
                 style={{ ...iStyle, flex: 1, fontWeight: 600 }} 
               />
               <button 

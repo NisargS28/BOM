@@ -122,17 +122,29 @@ export default function CycleTimeTable({
   showToast,
   headerData = {},
   setHeaderData,
-  articleName
+  articleName,
+  cycleCols = []
 }) {
   const isTentative = mode === "tentative";
 
   // Calculations
   const totalProgramsSum = getTotalPrograms(filtered);
-  const sumCNC = sumTimeField(filtered, "cncTime");
-  const sumFinishing = sumTimeField(filtered, "finishingTime");
-  const sumManual = sumTimeField(filtered, "manualOperations");
-  const sumRepair = sumTimeField(filtered, "repairKit");
-  const sumOthers = sumTimeField(filtered, "others");
+  
+  const colTotals = {};
+  cycleCols.forEach(c => {
+    colTotals[c.id] = sumTimeField(filtered, c.id);
+  });
+
+  const getCombinedCycleTime = (rows) => {
+    let totalSec = 0;
+    rows.forEach(r => {
+      cycleCols.forEach(c => {
+        totalSec += parseTimeToSeconds(r[c.id]);
+      });
+    });
+    return formatSecondsToHHMMSS(totalSec);
+  };
+
   const grandTotalTime = getCombinedCycleTime(filtered);
 
   return (
@@ -176,7 +188,7 @@ export default function CycleTimeTable({
           <thead>
             <tr style={{ background: "#dbe8f8" }}>
               <th colSpan={4} style={{ ...TH, background: "#dbe8f8", borderRight: "2px solid #000" }}>CORE KIT DETAILS</th>
-              <th colSpan={5} style={{ ...TH, background: "#fff4e0", color: "#b8600a", borderRight: "2px solid #000" }}>
+              <th colSpan={cycleCols.length} style={{ ...TH, background: "#fff4e0", color: "#b8600a", borderRight: "2px solid #000" }}>
                 {isTentative ? "THEORETICAL CYCLE TIME IN HH:MM:SS" : "ACTUAL CYCLE TIME IN HH:MM:SS"}
               </th>
               <th style={{ ...TH, background: "#f4f6fa" }}></th>
@@ -186,11 +198,9 @@ export default function CycleTimeTable({
               <th style={{ ...TH, minWidth: 180, textAlign: "left" }}>PART DESCRIPTION</th>
               <th style={{ ...TH, minWidth: 120 }}>PART CODE</th>
               <th style={{ ...TH, width: 100, textAlign: "right", borderRight: "2px solid #000" }}>NO OF PROGRAMS</th>
-              <th style={{ ...TH, width: 100, textAlign: "right" }}>CNC TIME</th>
-              <th style={{ ...TH, width: 100, textAlign: "right" }}>FINISHING TIME</th>
-              <th style={{ ...TH, width: 120, textAlign: "right" }}>MANUAL OPERATIONS</th>
-              <th style={{ ...TH, width: 100, textAlign: "right" }}>REPAIR KIT</th>
-              <th style={{ ...TH, width: 100, textAlign: "right", borderRight: "2px solid #000" }}>OTHERS</th>
+              {cycleCols.map((c, idx) => (
+                <th key={c.id} style={{ ...TH, width: 100, textAlign: "right", borderRight: idx === cycleCols.length - 1 ? "2px solid #000" : "" }}>{c.label}</th>
+              ))}
               <th style={{ ...TH, width: 100 }}>ACTIONS</th>
             </tr>
           </thead>
@@ -237,11 +247,9 @@ export default function CycleTimeTable({
                   {renderEditableCell("partDescription", "text", "left", { fontWeight: 600 })}
                   {renderEditableCell("partCode", "text", "center")}
                   {renderEditableCell("noOfPrograms", "number", "right", { borderRight: "2px solid #000" })}
-                  {renderEditableCell("cncTime", "text", "right")}
-                  {renderEditableCell("finishingTime", "text", "right")}
-                  {renderEditableCell("manualOperations", "text", "right")}
-                  {renderEditableCell("repairKit", "text", "right")}
-                  {renderEditableCell("others", "text", "right", { borderRight: "2px solid #000" })}
+                  {cycleCols.map((c, idxC) => 
+                    renderEditableCell(c.id, "text", "right", idxC === cycleCols.length - 1 ? { borderRight: "2px solid #000" } : {})
+                  )}
                   <td style={{ ...TD, textAlign: "center", whiteSpace: "nowrap" }}>
                     <button className="act-btn" title="Edit" onClick={() => openEdit(r)} style={btnSmall}>✏</button>
                     <button className="act-btn" title="Duplicate" onClick={() => dupRow(r)} style={{ ...btnSmall, marginLeft: 3 }}>⧉</button>
@@ -256,11 +264,9 @@ export default function CycleTimeTable({
             <tr style={{ background: "#f0f5ff", fontWeight: 800 }}>
               <td colSpan={3} style={{ ...TD, background: "#e8f0fb", color: "#1e3a5f", fontWeight: 800, fontSize: 10, letterSpacing: 1 }}>TOTAL</td>
               <td style={{ ...TD, textAlign: "right", borderRight: "2px solid #000" }}>{totalProgramsSum}</td>
-              <td style={{ ...TD, textAlign: "right" }}>{sumCNC}</td>
-              <td style={{ ...TD, textAlign: "right" }}>{sumFinishing}</td>
-              <td style={{ ...TD, textAlign: "right" }}>{sumManual}</td>
-              <td style={{ ...TD, textAlign: "right" }}>{sumRepair}</td>
-              <td style={{ ...TD, textAlign: "right", borderRight: "2px solid #000" }}>{sumOthers}</td>
+              {cycleCols.map((c, idxC) => (
+                <td key={c.id} style={{ ...TD, textAlign: "right", borderRight: idxC === cycleCols.length - 1 ? "2px solid #000" : "" }}>{colTotals[c.id]}</td>
+              ))}
               <td style={{ background: "#f4f6fa", border: "1px solid #000" }} />
             </tr>
             {/* Combined Cycle Time Row */}
@@ -268,7 +274,7 @@ export default function CycleTimeTable({
               <td colSpan={4} style={{ ...TD, background: "#ffe4bc", color: "#b8600a", fontWeight: 800, fontSize: 10, letterSpacing: 1, borderRight: "2px solid #000" }}>
                 {isTentative ? "TOTAL THEORETICAL CYCLE TIME" : "TOTAL ACTUAL CYCLE TIME"}
               </td>
-              <td colSpan={5} style={{ ...TD, textAlign: "center", color: "#e6920a", fontSize: 12, borderRight: "2px solid #000" }}>
+              <td colSpan={cycleCols.length} style={{ ...TD, textAlign: "center", color: "#e6920a", fontSize: 12, borderRight: "2px solid #000" }}>
                 {grandTotalTime}
               </td>
               <td style={{ background: "#f4f6fa", border: "1px solid #000" }} />

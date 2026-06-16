@@ -82,20 +82,29 @@ const mkReturnableRow = (cols = DEFAULT_AUX_COLS) => {
   return row;
 };
 
-const mkCycleTimeRow = (sno) => ({
-  id: Date.now() + Math.random() + "_" + sno,
-  sno,
-  partDescription: "",
-  partCode: "",
-  noOfPrograms: "",
-  cncTime: "",
-  finishingTime: "",
-  manualOperations: "",
-  repairKit: "",
-  others: ""
-});
+const DEFAULT_CYCLE_COLS = [
+  { id: "cncTime", label: "CNC TIME" },
+  { id: "finishingTime", label: "FINISHING TIME" },
+  { id: "manualOperations", label: "MANUAL OPERATIONS" },
+  { id: "repairKit", label: "REPAIR KIT" },
+  { id: "others", label: "OTHERS" }
+];
 
-const mkDefaultCycleTimeRows = () => [mkCycleTimeRow(1)];
+const mkCycleTimeRow = (sno, cols = DEFAULT_CYCLE_COLS) => {
+  const row = {
+    id: Date.now() + Math.random() + "_" + sno,
+    sno,
+    partDescription: "",
+    partCode: "",
+    noOfPrograms: ""
+  };
+  cols.forEach(c => {
+    row[c.id] = "";
+  });
+  return row;
+};
+
+const mkDefaultCycleTimeRows = (cols = DEFAULT_CYCLE_COLS) => [mkCycleTimeRow(1, cols)];
 
 // Configure this to toggle between localhost and your remote ngrok URL
 //const API_BASE_URL = "https://unmade-amnesty-gallon.ngrok-free.dev";
@@ -185,8 +194,10 @@ export default function App() {
   const [returnableRows, setReturnableRows, undoReturnableRows, canUndoReturnableRows] = useUndoRows([mkReturnableRow(DEFAULT_AUX_COLS)]);
 
   // Cycle time formats states
-  const [tentativeCycleRows, setTentativeCycleRows, undoTentativeCycleRows, canUndoTentativeCycleRows] = useUndoRows(mkDefaultCycleTimeRows());
-  const [productionCycleRows, setProductionCycleRows, undoProductionCycleRows, canUndoProductionCycleRows] = useUndoRows(mkDefaultCycleTimeRows());
+  const [tentativeCycleCols, setTentativeCycleCols] = useState(DEFAULT_CYCLE_COLS);
+  const [productionCycleCols, setProductionCycleCols] = useState(DEFAULT_CYCLE_COLS);
+  const [tentativeCycleRows, setTentativeCycleRows, undoTentativeCycleRows, canUndoTentativeCycleRows] = useUndoRows(mkDefaultCycleTimeRows(DEFAULT_CYCLE_COLS));
+  const [productionCycleRows, setProductionCycleRows, undoProductionCycleRows, canUndoProductionCycleRows] = useUndoRows(mkDefaultCycleTimeRows(DEFAULT_CYCLE_COLS));
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(null);
   const [filterType, setFilterType] = useState("ALL");
@@ -255,17 +266,21 @@ export default function App() {
               setHeader(data.header);
               setNonReturnableCols(data.header.nonReturnableCols || DEFAULT_AUX_COLS);
               setReturnableCols(data.header.returnableCols || DEFAULT_AUX_COLS);
+              setTentativeCycleCols(data.header.tentativeCycleCols || DEFAULT_CYCLE_COLS);
+              setProductionCycleCols(data.header.productionCycleCols || DEFAULT_CYCLE_COLS);
               setNonReturnableRows(data.header.nonReturnableAuxRows || [mkNonReturnableRow(data.header.nonReturnableCols || DEFAULT_AUX_COLS)]);
               setReturnableRows(data.header.returnableAuxRows || [mkReturnableRow(data.header.returnableCols || DEFAULT_AUX_COLS)]);
-              setTentativeCycleRows(data.header.tentativeCycleRows || mkDefaultCycleTimeRows());
-              setProductionCycleRows(data.header.productionCycleRows || mkDefaultCycleTimeRows());
+              setTentativeCycleRows(data.header.tentativeCycleRows || mkDefaultCycleTimeRows(data.header.tentativeCycleCols || DEFAULT_CYCLE_COLS));
+              setProductionCycleRows(data.header.productionCycleRows || mkDefaultCycleTimeRows(data.header.productionCycleCols || DEFAULT_CYCLE_COLS));
             } else {
               setNonReturnableCols(DEFAULT_AUX_COLS);
               setReturnableCols(DEFAULT_AUX_COLS);
+              setTentativeCycleCols(DEFAULT_CYCLE_COLS);
+              setProductionCycleCols(DEFAULT_CYCLE_COLS);
               setNonReturnableRows([mkNonReturnableRow(DEFAULT_AUX_COLS)]);
               setReturnableRows([mkReturnableRow(DEFAULT_AUX_COLS)]);
-              setTentativeCycleRows(mkDefaultCycleTimeRows());
-              setProductionCycleRows(mkDefaultCycleTimeRows());
+              setTentativeCycleRows(mkDefaultCycleTimeRows(DEFAULT_CYCLE_COLS));
+              setProductionCycleRows(mkDefaultCycleTimeRows(DEFAULT_CYCLE_COLS));
             }
             showToast("Loaded from DB");
           }
@@ -502,9 +517,9 @@ export default function App() {
     } else if (selectedFormat === "Returnable Auxiliary") {
       setReturnableRows(prev => [...prev, mkReturnableRow(returnableCols)]);
     } else if (selectedFormat === "Cycle Time - Tentative") {
-      setTentativeCycleRows(prev => [...prev, mkCycleTimeRow(prev.length + 1)]);
+      setTentativeCycleRows(prev => [...prev, mkCycleTimeRow(prev.length + 1, tentativeCycleCols)]);
     } else if (selectedFormat === "Cycle Time - Production") {
-      setProductionCycleRows(prev => [...prev, mkCycleTimeRow(prev.length + 1)]);
+      setProductionCycleRows(prev => [...prev, mkCycleTimeRow(prev.length + 1, productionCycleCols)]);
     } else {
       setRows(prev => [...prev, mkRow(shellCols, matTypes)]);
     }
@@ -551,6 +566,12 @@ export default function App() {
     } else if (selectedFormat === "Returnable Auxiliary") {
       setReturnableCols(p => [...p, { id, label }]);
       setReturnableRows(p => p.map(r => ({ ...r, [id]: "" })));
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      setTentativeCycleCols(p => [...p, { id, label }]);
+      setTentativeCycleRows(p => p.map(r => ({ ...r, [id]: "" })));
+    } else if (selectedFormat === "Cycle Time - Production") {
+      setProductionCycleCols(p => [...p, { id, label }]);
+      setProductionCycleRows(p => p.map(r => ({ ...r, [id]: "" })));
     }
   };
 
@@ -569,6 +590,20 @@ export default function App() {
         delete n[id];
         return n;
       }));
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      setTentativeCycleCols(p => p.filter(c => c.id !== id));
+      setTentativeCycleRows(p => p.map(r => {
+        const n = { ...r };
+        delete n[id];
+        return n;
+      }));
+    } else if (selectedFormat === "Cycle Time - Production") {
+      setProductionCycleCols(p => p.filter(c => c.id !== id));
+      setProductionCycleRows(p => p.map(r => {
+        const n = { ...r };
+        delete n[id];
+        return n;
+      }));
     }
   };
 
@@ -577,6 +612,10 @@ export default function App() {
       setNonReturnableCols(p => p.map(c => c.id === id ? { ...c, label } : c));
     } else if (selectedFormat === "Returnable Auxiliary") {
       setReturnableCols(p => p.map(c => c.id === id ? { ...c, label } : c));
+    } else if (selectedFormat === "Cycle Time - Tentative") {
+      setTentativeCycleCols(p => p.map(c => c.id === id ? { ...c, label } : c));
+    } else if (selectedFormat === "Cycle Time - Production") {
+      setProductionCycleCols(p => p.map(c => c.id === id ? { ...c, label } : c));
     }
   };
 
@@ -619,6 +658,8 @@ export default function App() {
         ...header,
         nonReturnableCols,
         returnableCols,
+        tentativeCycleCols,
+        productionCycleCols,
         nonReturnableAuxRows: nonReturnableRows,
         returnableAuxRows: returnableRows,
         tentativeCycleRows,
@@ -650,6 +691,8 @@ export default function App() {
         ...header,
         nonReturnableCols,
         returnableCols,
+        tentativeCycleCols,
+        productionCycleCols,
         nonReturnableAuxRows: nonReturnableRows,
         returnableAuxRows: returnableRows,
         tentativeCycleRows,
@@ -683,6 +726,8 @@ export default function App() {
       ...header,
       nonReturnableCols,
       returnableCols,
+      tentativeCycleCols,
+      productionCycleCols,
       nonReturnableAuxRows: nonReturnableRows,
       returnableAuxRows: returnableRows,
       tentativeCycleRows,
@@ -713,17 +758,21 @@ export default function App() {
           setHeader(d.header);
           setNonReturnableCols(d.header.nonReturnableCols || DEFAULT_AUX_COLS);
           setReturnableCols(d.header.returnableCols || DEFAULT_AUX_COLS);
+          setTentativeCycleCols(d.header.tentativeCycleCols || DEFAULT_CYCLE_COLS);
+          setProductionCycleCols(d.header.productionCycleCols || DEFAULT_CYCLE_COLS);
           setNonReturnableRows(d.header.nonReturnableAuxRows || [mkNonReturnableRow(d.header.nonReturnableCols || DEFAULT_AUX_COLS)]);
           setReturnableRows(d.header.returnableAuxRows || [mkReturnableRow(d.header.returnableCols || DEFAULT_AUX_COLS)]);
-          setTentativeCycleRows(d.header.tentativeCycleRows || mkDefaultCycleTimeRows());
-          setProductionCycleRows(d.header.productionCycleRows || mkDefaultCycleTimeRows());
+          setTentativeCycleRows(d.header.tentativeCycleRows || mkDefaultCycleTimeRows(d.header.tentativeCycleCols || DEFAULT_CYCLE_COLS));
+          setProductionCycleRows(d.header.productionCycleRows || mkDefaultCycleTimeRows(d.header.productionCycleCols || DEFAULT_CYCLE_COLS));
         } else {
           setNonReturnableCols(DEFAULT_AUX_COLS);
           setReturnableCols(DEFAULT_AUX_COLS);
+          setTentativeCycleCols(DEFAULT_CYCLE_COLS);
+          setProductionCycleCols(DEFAULT_CYCLE_COLS);
           setNonReturnableRows([mkNonReturnableRow(DEFAULT_AUX_COLS)]);
           setReturnableRows([mkReturnableRow(DEFAULT_AUX_COLS)]);
-          setTentativeCycleRows(mkDefaultCycleTimeRows());
-          setProductionCycleRows(mkDefaultCycleTimeRows());
+          setTentativeCycleRows(mkDefaultCycleTimeRows(DEFAULT_CYCLE_COLS));
+          setProductionCycleRows(mkDefaultCycleTimeRows(DEFAULT_CYCLE_COLS));
         }
         if (d.rows) setRows(d.rows);
         if (d.shellCols) setShellCols(d.shellCols);
@@ -993,6 +1042,7 @@ export default function App() {
     if (selectedFormat === "Cycle Time - Tentative" || selectedFormat === "Cycle Time - Production") {
       const isTentative = selectedFormat === "Cycle Time - Tentative";
       const rowsToExport = isTentative ? tentativeCycleRows : productionCycleRows;
+      const cols = isTentative ? tentativeCycleCols : productionCycleCols;
       
       const wsData = [
         [isTentative ? "TENTATIVE CORE KIT CYCLE TIME" : "PRODUCTION CORE KIT CYCLE TIME"],
@@ -1004,7 +1054,7 @@ export default function App() {
           `MACHINE: ${header.machine || "—"}`
         ],
         [],
-        ["S.NO", "PART DESCRIPTION", "PART CODE", "NO OF PROGRAMS", "CNC TIME", "FINISHING TIME", "MANUAL OPERATIONS", "REPAIR KIT", "OTHERS"]
+        ["S.NO", "PART DESCRIPTION", "PART CODE", "NO OF PROGRAMS", ...cols.map(c => c.label)]
       ];
 
       const parse = (val) => {
@@ -1027,31 +1077,24 @@ export default function App() {
       };
 
       let totalProg = 0;
-      let totalCNC = 0;
-      let totalFinish = 0;
-      let totalManual = 0;
-      let totalRepair = 0;
-      let totalOthers = 0;
+      const colSeconds = {};
+      cols.forEach(c => {
+        colSeconds[c.id] = 0;
+      });
 
       rowsToExport.forEach((r, idx) => {
         const prog = parseInt(r.noOfPrograms) || 0;
         totalProg += prog;
-        totalCNC += parse(r.cncTime);
-        totalFinish += parse(r.finishingTime);
-        totalManual += parse(r.manualOperations);
-        totalRepair += parse(r.repairKit);
-        totalOthers += parse(r.others);
+        cols.forEach(c => {
+          colSeconds[c.id] += parse(r[c.id]);
+        });
 
         wsData.push([
           r.sno || idx + 1,
           r.partDescription || "",
           r.partCode || "",
           prog,
-          r.cncTime || "00:00:00",
-          r.finishingTime || "00:00:00",
-          r.manualOperations || "00:00:00",
-          r.repairKit || "00:00:00",
-          r.others || "00:00:00"
+          ...cols.map(c => r[c.id] || "00:00:00")
         ]);
       });
 
@@ -1060,25 +1103,21 @@ export default function App() {
         "",
         "",
         totalProg,
-        format(totalCNC),
-        format(totalFinish),
-        format(totalManual),
-        format(totalRepair),
-        format(totalOthers)
+        ...cols.map(c => format(colSeconds[c.id]))
       ]);
 
-      const grandSeconds = totalCNC + totalFinish + totalManual + totalRepair + totalOthers;
-      wsData.push([
+      const grandSeconds = cols.reduce((sum, c) => sum + colSeconds[c.id], 0);
+      const grandTotalRow = [
         isTentative ? "TOTAL THEORETICAL CYCLE TIME" : "TOTAL ACTUAL CYCLE TIME",
         "",
         "",
         "",
-        format(grandSeconds),
-        "",
-        "",
-        "",
-        ""
-      ]);
+        format(grandSeconds)
+      ];
+      while (grandTotalRow.length < 4 + cols.length) {
+        grandTotalRow.push("");
+      }
+      wsData.push(grandTotalRow);
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       
@@ -1088,7 +1127,7 @@ export default function App() {
       ws['!merges'] = [
         { s: { r: totalIdx, c: 0 }, e: { r: totalIdx, c: 2 } },
         { s: { r: grandIdx, c: 0 }, e: { r: grandIdx, c: 3 } },
-        { s: { r: grandIdx, c: 4 }, e: { r: grandIdx, c: 8 } }
+        { s: { r: grandIdx, c: 4 }, e: { r: grandIdx, c: 4 + cols.length - 1 } }
       ];
 
       XLSX.utils.book_append_sheet(wb, ws, isTentative ? "Tentative Cycle Time" : "Production Cycle Time");
@@ -1471,6 +1510,11 @@ export default function App() {
               placeholder="Enter Name"
               value={userInput}
               onChange={e => setUserInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  setUsername(userInput);
+                }
+              }}
               style={{ ...iStyle, width: "100%", marginBottom: 10 }}
             />
             <button
@@ -1835,6 +1879,7 @@ export default function App() {
           headerData={header}
           setHeaderData={setHeader}
           articleName={header.article}
+          cycleCols={tentativeCycleCols}
         />
       ) : selectedFormat === "Cycle Time - Production" ? (
         <ProductionCycleTimeTable
@@ -1858,6 +1903,7 @@ export default function App() {
           headerData={header}
           setHeaderData={setHeader}
           articleName={header.article}
+          cycleCols={productionCycleCols}
         />
       ) : (
         <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#fff", margin: 20, borderRadius: 10, border: "1.5px dashed #c8d8ee", minHeight: 300 }}>
@@ -1932,7 +1978,9 @@ export default function App() {
         selectedFormat={selectedFormat}
         auxCols={
           selectedFormat === "Non Returnable Auxiliary" ? nonReturnableCols :
-          selectedFormat === "Returnable Auxiliary" ? returnableCols : []
+          selectedFormat === "Returnable Auxiliary" ? returnableCols :
+          selectedFormat === "Cycle Time - Tentative" ? tentativeCycleCols :
+          selectedFormat === "Cycle Time - Production" ? productionCycleCols : []
         }
         addAuxCol={addAuxCol}
         removeAuxCol={removeAuxCol}
@@ -1968,7 +2016,9 @@ export default function App() {
         selectedFormat={selectedFormat}
         auxCols={
           selectedFormat === "Non Returnable Auxiliary" ? nonReturnableCols :
-          selectedFormat === "Returnable Auxiliary" ? returnableCols : []
+          selectedFormat === "Returnable Auxiliary" ? returnableCols :
+          selectedFormat === "Cycle Time - Tentative" ? tentativeCycleCols :
+          selectedFormat === "Cycle Time - Production" ? productionCycleCols : []
         }
       />
 
