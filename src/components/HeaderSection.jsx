@@ -301,7 +301,15 @@ export default function HeaderSection({
                 <div style={{ display: "flex", gap: 4 }}>
                   <select
                     value={header.article}
-                    onChange={(e) => setHeader(h => ({ ...h, article: e.target.value }))}
+                    onChange={(e) => {
+                      const selectedVal = e.target.value;
+                      const matched = articleList.find(a => a.article === selectedVal);
+                      setHeader(h => ({
+                        ...h,
+                        article: selectedVal,
+                        customer: matched ? matched.customer : h.customer
+                      }));
+                    }}
                     style={{ ...iStyle, flex: 1 }}
                   >
                     <option value="">Select</option>

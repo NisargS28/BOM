@@ -30,6 +30,7 @@ import EditRowModal from './components/EditRowModal';
 
 // Styling
 import './App.css';
+import skapsLogo from './assets/SkapsLogo_300px.png';
 
 // Dynamic auxiliary row/col initializers
 const DEFAULT_AUX_COLS = [
@@ -184,7 +185,7 @@ export default function App() {
     kitWoNo: "",
     kitPrdDate: ""
   });
-  
+
   const [rows, setRows, undoRows, canUndo] = useUndoRows([mkRow(DEFAULT_SHELL_COLS, DEFAULT_MATERIAL_TYPES)]);
 
   // Auxiliary formats states
@@ -324,9 +325,9 @@ export default function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
-    canUndo, undoRows, 
-    canUndoNonReturnableRows, undoNonReturnableRows, 
-    canUndoReturnableRows, undoReturnableRows, 
+    canUndo, undoRows,
+    canUndoNonReturnableRows, undoNonReturnableRows,
+    canUndoReturnableRows, undoReturnableRows,
     canUndoTentativeCycleRows, undoTentativeCycleRows,
     canUndoProductionCycleRows, undoProductionCycleRows,
     selectedFormat
@@ -342,26 +343,26 @@ export default function App() {
   }), [computed, filterType, search]);
 
   const filteredNonReturnable = useMemo(() => {
-    return nonReturnableRows.filter(r => 
+    return nonReturnableRows.filter(r =>
       !search || (r.description && r.description.toLowerCase().includes(search.toLowerCase()))
     );
   }, [nonReturnableRows, search]);
 
   const filteredReturnable = useMemo(() => {
-    return returnableRows.filter(r => 
+    return returnableRows.filter(r =>
       !search || (r.description && r.description.toLowerCase().includes(search.toLowerCase()))
     );
   }, [returnableRows, search]);
 
   const filteredTentativeCycle = useMemo(() => {
-    return tentativeCycleRows.filter(r => 
+    return tentativeCycleRows.filter(r =>
       !search || (r.partDescription && r.partDescription.toLowerCase().includes(search.toLowerCase())) ||
       (r.partCode && r.partCode.toLowerCase().includes(search.toLowerCase()))
     );
   }, [tentativeCycleRows, search]);
 
   const filteredProductionCycle = useMemo(() => {
-    return productionCycleRows.filter(r => 
+    return productionCycleRows.filter(r =>
       !search || (r.partDescription && r.partDescription.toLowerCase().includes(search.toLowerCase())) ||
       (r.partCode && r.partCode.toLowerCase().includes(search.toLowerCase()))
     );
@@ -400,37 +401,37 @@ export default function App() {
   const commitInline = () => {
     if (!inlineCell) return;
     const valStr = inlineVal.trim();
-    
+
     if (selectedFormat === "Non Returnable Auxiliary") {
       const numericFields = ["length", "width", "height", "qtyKit", "price"];
       const isNumeric = numericFields.includes(inlineCell.colId);
-      setNonReturnableRows(prev => prev.map(r => r.id === inlineCell.rowId ? { 
-        ...r, 
-        [inlineCell.colId]: isNumeric ? (parseFloat(valStr) || 0) : valStr 
+      setNonReturnableRows(prev => prev.map(r => r.id === inlineCell.rowId ? {
+        ...r,
+        [inlineCell.colId]: isNumeric ? (parseFloat(valStr) || 0) : valStr
       } : r));
     } else if (selectedFormat === "Returnable Auxiliary") {
       const numericFields = ["length", "width", "height", "qtyKit", "returnablePrice", "returnableCycle"];
       const isNumeric = numericFields.includes(inlineCell.colId);
-      setReturnableRows(prev => prev.map(r => r.id === inlineCell.rowId ? { 
-        ...r, 
-        [inlineCell.colId]: isNumeric ? (parseFloat(valStr) || 0) : valStr 
+      setReturnableRows(prev => prev.map(r => r.id === inlineCell.rowId ? {
+        ...r,
+        [inlineCell.colId]: isNumeric ? (parseFloat(valStr) || 0) : valStr
       } : r));
     } else if (selectedFormat === "Cycle Time - Tentative") {
       const isNumeric = inlineCell.colId === "noOfPrograms";
-      setTentativeCycleRows(prev => prev.map(r => r.id === inlineCell.rowId ? { 
-        ...r, 
-        [inlineCell.colId]: isNumeric ? (parseInt(valStr) || 0) : valStr 
+      setTentativeCycleRows(prev => prev.map(r => r.id === inlineCell.rowId ? {
+        ...r,
+        [inlineCell.colId]: isNumeric ? (parseInt(valStr) || 0) : valStr
       } : r));
     } else if (selectedFormat === "Cycle Time - Production") {
       const isNumeric = inlineCell.colId === "noOfPrograms";
-      setProductionCycleRows(prev => prev.map(r => r.id === inlineCell.rowId ? { 
-        ...r, 
-        [inlineCell.colId]: isNumeric ? (parseInt(valStr) || 0) : valStr 
+      setProductionCycleRows(prev => prev.map(r => r.id === inlineCell.rowId ? {
+        ...r,
+        [inlineCell.colId]: isNumeric ? (parseInt(valStr) || 0) : valStr
       } : r));
     } else {
       setRows(prev => prev.map(r => r.id === inlineCell.rowId ? { ...r, [inlineCell.colId]: parseFloat(valStr) || 0 } : r));
     }
-    
+
     setInlineCell(null);
     setInlineVal("");
   };
@@ -479,7 +480,7 @@ export default function App() {
       setRows(prev => prev.filter(r => r.id !== id));
     }
   };
-  
+
   const dupRow = row => {
     if (selectedFormat === "Non Returnable Auxiliary") {
       const idx = nonReturnableRows.findIndex(r => r.id === row.id);
@@ -809,7 +810,7 @@ export default function App() {
         const dataRows = data.slice(1).filter(r => r.some(c => c !== ""));
         setImportHeaders(headers);
         setImportRows(dataRows);
-        
+
         // Auto-map
         const map = {};
         const aliases = {
@@ -824,7 +825,7 @@ export default function App() {
           density: ["density", "density (kg/m3)", "density (kg/m³)", "dens"],
           partName: ["part name", "partname", "part"]
         };
-        
+
         headers.forEach((h, i) => {
           const hl = h.toLowerCase();
           Object.entries(aliases).forEach(([field, alts]) => {
@@ -834,7 +835,7 @@ export default function App() {
             if (hl === sc.label.toLowerCase() || hl === sc.label.toLowerCase() + " sheets") map[sc.id] = i;
           });
         });
-        
+
         setImportMapping(map);
         setActiveModal("importExcel");
       } catch {
@@ -872,10 +873,10 @@ export default function App() {
         ...shellData,
       };
     });
-    
+
     if (mode === "replace") setRows(newRows);
     else setRows(prev => [...prev, ...newRows]);
-    
+
     setActiveModal(null);
     setImportRows([]);
     setImportHeaders([]);
@@ -903,7 +904,7 @@ export default function App() {
           .reduce((a, b) => a + b, 0);
         const totalQty = itemSum > 0 ? itemSum : (parseFloat(r.qtyKit) || 0);
         const amount = totalQty * (parseFloat(r.price) || 0);
-        
+
         wsData.push([
           idx + 1,
           r.description || "",
@@ -927,7 +928,7 @@ export default function App() {
           .reduce((a, b) => a + b, 0);
         return sum + (itemSum > 0 ? itemSum : (parseFloat(r.qtyKit) || 0));
       }, 0);
-      
+
       const totalAmountSum = filteredNonReturnable.reduce((sum, r) => {
         const itemSum = nonReturnableCols
           .map(c => parseFloat(r[c.id]))
@@ -943,7 +944,7 @@ export default function App() {
       totalRow.push(totalQtyKitSum);
       totalRow.push("");
       totalRow.push(totalAmountSum);
-      
+
       wsData.push(totalRow);
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -1027,7 +1028,7 @@ export default function App() {
       totalRow.push(totalAmountSum);
       totalRow.push(finalAmountSum);
       totalRow.push("");
-      
+
       wsData.push(totalRow);
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -1043,12 +1044,12 @@ export default function App() {
       const isTentative = selectedFormat === "Cycle Time - Tentative";
       const rowsToExport = isTentative ? tentativeCycleRows : productionCycleRows;
       const cols = isTentative ? tentativeCycleCols : productionCycleCols;
-      
+
       const wsData = [
         [isTentative ? "TENTATIVE CORE KIT CYCLE TIME" : "PRODUCTION CORE KIT CYCLE TIME"],
         [
-          `ARTICLE: ${header.article || "—"}`, 
-          `CUSTOMER: ${header.customer || "—"}`, 
+          `ARTICLE: ${header.article || "—"}`,
+          `CUSTOMER: ${header.customer || "—"}`,
           `REV: ${header.rev || "—"}`,
           `PROJECT: ${header.projectName || "—"}`,
           `MACHINE: ${header.machine || "—"}`
@@ -1120,10 +1121,10 @@ export default function App() {
       wsData.push(grandTotalRow);
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
-      
+
       const totalIdx = wsData.length - 2;
       const grandIdx = wsData.length - 1;
-      
+
       ws['!merges'] = [
         { s: { r: totalIdx, c: 0 }, e: { r: totalIdx, c: 2 } },
         { s: { r: grandIdx, c: 0 }, e: { r: grandIdx, c: 3 } },
@@ -1213,7 +1214,7 @@ export default function App() {
       };
 
       const dc = (v, t, fill, fnt, fmt) => ({ v: v != null ? v : "", t, s: { font: { sz: 10, name: "Calibri", ...fnt }, fill, alignment: al(t === "n" ? "center" : "left"), border: bdr(), ...(fmt ? { numFmt: fmt } : {}) } });
-      
+
       const getVal = (r, col) => {
         const s = r.colStats[col.id] || { sheets: 0, sqm: 0, vol: 0, wt: 0 };
         return s[metricKey] || 0;
@@ -1234,7 +1235,7 @@ export default function App() {
         const mt = matTypes.find(m => m.name === r.type);
         const acRgb = (mt ? mt.color : "#6655AA").replace("#", "");
         let c2 = 0;
-        
+
         R(row, c2++, dc(i + 1, "n", fill, { bold: true, color: { rgb: "94A3B8" } }));
         R(row, c2++, dc(r.description, "s", fill, { bold: true, color: { rgb: "1E3A5F" } }));
         R(row, c2++, dc(r.type, "s", { patternType: "solid", fgColor: { rgb: "EEF2FF" } }, { bold: true, color: { rgb: acRgb } }));
@@ -1243,13 +1244,13 @@ export default function App() {
         R(row, c2++, dc(r.surface, "s", fill, { color: { rgb: "888888" } }));
         [r.length, r.width, r.thickness].forEach(v => R(row, c2++, dc(v, "n", { patternType: "solid", fgColor: { rgb: "F3F0FF" } }, { color: { rgb: "6B3FB5" } }, "0.000")));
         R(row, c2++, dc(r.density, "n", { patternType: "solid", fgColor: { rgb: "F3F0FF" } }, { color: { rgb: "6B3FB5" } }, "0.00"));
-        
+
         shellCols.forEach(col => {
           const cRgb = col.color.replace("#", "");
           const val = getVal(r, col);
           R(row, c2++, dc(val, "n", { patternType: "solid", fgColor: { rgb: mc.light } }, { bold: metricKey === "sheets", color: { rgb: cRgb } }, fmt));
         });
-        
+
         const tot = getRowTotal(r);
         R(row, c2++, dc(tot, "n", { patternType: "solid", fgColor: { rgb: mc.totBg } }, { bold: true, color: { rgb: mc.totFg } }, fmt));
       });
@@ -1257,11 +1258,11 @@ export default function App() {
       // Totals
       const sr = 7 + computed.length;
       for (let c = 0; c < totalCols; c++) R(sr, c, { v: "", t: "s", s: { fill: { patternType: "solid", fgColor: { rgb: "E8F0FB" } } } });
-      
+
       const tr = sr + 1;
       R(tr, 0, { v: "GRAND TOTALS", t: "s", s: { font: { bold: true, sz: 10, color: { rgb: mc.accent }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: mc.light } }, alignment: al("left"), border: bdrM(mc.accent) } });
       for (let c = 1; c < matColCount; c++) R(tr, c, { v: "", t: "s", s: { fill: { patternType: "solid", fgColor: { rgb: mc.light } }, border: bdrM(mc.accent) } });
-      
+
       let tc2 = matColCount;
       shellCols.forEach(col => {
         const ct = totals.colTotals[col.id] || { sheets: 0, sqm: 0, vol: 0, wt: 0 };
@@ -1269,7 +1270,7 @@ export default function App() {
         const val = ct[metricKey] || 0;
         R(tr, tc2++, { v: val, t: "n", s: { font: { bold: true, sz: 11, color: { rgb: cRgb }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: mc.light } }, alignment: al("center"), border: bdrM(cRgb), ...(fmt ? { numFmt: fmt } : {}) } });
       });
-      
+
       const grandVal = totals["total" + metricKey.charAt(0).toUpperCase() + metricKey.slice(1)] || totals.total;
       R(tr, tc2, { v: grandVal, t: "n", s: { font: { bold: true, sz: 13, color: { rgb: mc.accent }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: mc.totBg } }, alignment: al("center"), border: bdrM(mc.accent), ...(fmt ? { numFmt: fmt } : {}) } });
 
@@ -1277,7 +1278,7 @@ export default function App() {
       let mr = tr + 2;
       R(mr, 0, { v: mc.label.toUpperCase() + " SUMMARY BY MATERIAL TYPE", t: "s", s: { font: { bold: true, sz: 10, color: { rgb: "1E3A5F" }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "DBE8F8" } }, border: bdr() } });
       mr++;
-      
+
       matTypes.forEach(m => {
         const rows2 = computed.filter(r2 => r2.type === m.name);
         const val = rows2.reduce((a, r2) => {
@@ -1292,7 +1293,7 @@ export default function App() {
           mr++;
         }
       });
-      
+
       R(mr, 0, { v: "GRAND TOTAL", t: "s", s: { font: { bold: true, sz: 10, color: { rgb: mc.accent }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: mc.light } }, border: bdrM(mc.accent) } });
       R(mr, 1, { v: grandVal, t: "n", s: { font: { bold: true, sz: 12, color: { rgb: mc.accent }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: mc.totBg } }, border: bdrM(mc.accent), ...(fmt ? { numFmt: fmt } : {}) } });
       R(mr, 2, { v: mc.unit, t: "s", s: { font: { bold: true, sz: 9, color: { rgb: mc.accent }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: mc.light } }, border: bdrM(mc.accent) } });
@@ -1316,7 +1317,7 @@ export default function App() {
       const R = (r, c, cell) => {
         ws[XLSX.utils.encode_cell({ r, c })] = cell;
       };
-      
+
       const mkHdr = (v, fg, bg, border = bdr()) => ({ v, t: "s", s: { font: { bold: true, sz: 9, color: { rgb: fg }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: bg } }, alignment: alCW("center"), border } });
       const mkCell = (v, t, fg, bg, fmt, bold = false, border = bdr()) => ({ v: v != null ? v : "", t, s: { font: { bold, sz: 10, name: "Calibri", color: { rgb: fg } }, fill: { patternType: "solid", fgColor: { rgb: bg } }, alignment: al(t === "n" ? "center" : "left"), border, ...(fmt ? { numFmt: fmt } : {}) } });
 
@@ -1327,7 +1328,7 @@ export default function App() {
       R(row, 0, { v: "ANALYTICS & PIVOT SUMMARY", t: "s", s: { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "1E3A5F" } }, alignment: al("left"), border: bdrM("E6920A") } });
       for (let c = 1; c < totalAnalyticsCols + 4; c++) R(row, c, { v: "", t: "s", s: { fill: { patternType: "solid", fgColor: { rgb: "1E3A5F" } }, border: bdrM("E6920A") } });
       row++;
-      
+
       for (let c = 0; c < totalAnalyticsCols + 4; c++) R(row, c, { v: "", t: "s", s: { fill: { patternType: "solid", fgColor: { rgb: "E6920A" } } } });
       row++;
 
@@ -1335,7 +1336,7 @@ export default function App() {
       R(row, 0, { v: "PROJECT KPIs", t: "s", s: { font: { bold: true, sz: 10, color: { rgb: "1E3A5F" }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "DBE8F8" } }, border: bdrM("A0C4E4") } });
       for (let c = 1; c < 8; c++) R(row, c, { v: "", t: "s", s: { fill: { patternType: "solid", fgColor: { rgb: "DBE8F8" }, border: bdrM("A0C4E4") } } });
       row++;
-      
+
       const kpis = [
         ["TOTAL WEIGHT", totals.totalWt, "n", "B45309", "FFFBEB", numFmt3, "kg"],
         ["TOTAL AREA", totals.totalSqm, "n", "2563A8", "EFF6FF", numFmt3, "m²"],
@@ -1344,7 +1345,7 @@ export default function App() {
         ["NO. OF MATERIALS", computed.length, "n", "0891B2", "ECFEFF", "0", "rows"],
         ["NO. OF PARTS", shellCols.length, "n", "DB2777", "FDF2F8", "0", "parts"]
       ];
-      
+
       const kRow = row, kRow2 = row + 1;
       kpis.slice(0, 3).forEach(([l, v, t, fg, bg, fmt], i) => {
         R(kRow, i * 2, { v: l, t: "s", s: { font: { bold: true, sz: 8, color: { rgb: "94A3B8" }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: bg } }, alignment: al("left"), border: bdr(fg) } });
@@ -1363,7 +1364,7 @@ export default function App() {
       row++;
       [["MATERIAL", "4A6FA8", "F0F5FF"], ["WEIGHT (kg)", "B45309", "FFFBEB"], ["AREA (m²)", "2563A8", "EFF6FF"], ["VOLUME (m³)", "2D8A3E", "F0FDF4"], ["NO. SHEETS", "6B3FB5", "EDE8FB"]].forEach(([v, f, b], i) => R(row, i, mkHdr(v, f, b)));
       row++;
-      
+
       matTypes.forEach(m => {
         const mrows = computed.filter(r => r.type === m.name);
         const wt = mrows.reduce((a, r) => a + r.totalWt, 0);
@@ -1372,7 +1373,7 @@ export default function App() {
         const sqm = mrows.reduce((a, r) => a + r.totalSqm, 0);
         const vol = mrows.reduce((a, r) => a + r.totalVol, 0);
         const sh = mrows.reduce((a, r) => a + r.totalSheets, 0);
-        
+
         R(row, 0, { v: m.name, t: "s", s: { font: { bold: true, sz: 10, color: { rgb: cc }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "F8FAFC" } }, alignment: al("left"), border: bdrM(cc) } });
         R(row, 1, mkCell(wt, "n", "B45309", "FFFBEB", numFmt3, true));
         R(row, 2, mkCell(sqm, "n", "2563A8", "EFF6FF", numFmt3, true));
@@ -1380,7 +1381,7 @@ export default function App() {
         R(row, 4, mkCell(sh, "n", "6B3FB5", "EDE8FB", "0", true));
         row++;
       });
-      
+
       R(row, 0, { v: "TOTAL", t: "s", s: { font: { bold: true, sz: 10, color: { rgb: "E6920A" }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "FFF4E0" } }, border: bdrM("E6920A") } });
       R(row, 1, mkCell(totals.totalWt, "n", "B45309", "FFF4E0", numFmt3, true, bdrM("E6920A")));
       R(row, 2, mkCell(totals.totalSqm, "n", "2563A8", "FFF4E0", numFmt3, true, bdrM("E6920A")));
@@ -1394,11 +1395,11 @@ export default function App() {
       row++;
       [["SHELL PART", "4A6FA8", "F0F5FF"], ["WEIGHT (kg)", "B45309", "FFFBEB"], ["AREA (m²)", "2563A8", "EFF6FF"], ["VOLUME (m³)", "2D8A3E", "F0FDF4"], ["NO. SHEETS", "6B3FB5", "EDE8FB"]].forEach(([v, f, b], i) => R(row, i, mkHdr(v, f, b)));
       row++;
-      
+
       shellCols.forEach(c => {
         const ct = totals.colTotals[c.id] || { sheets: 0, sqm: 0, vol: 0, wt: 0 };
         const cc = c.color.replace("#", "");
-        
+
         R(row, 0, { v: c.label + (c.itemCode ? " (" + c.itemCode + ")" : ""), t: "s", s: { font: { bold: true, sz: 10, color: { rgb: cc }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "F8FAFC" } }, alignment: al("left"), border: bdrM(cc) } });
         R(row, 1, mkCell(ct.wt, "n", "B45309", "FFFBEB", numFmt3, true));
         R(row, 2, mkCell(ct.sqm, "n", "2563A8", "EFF6FF", numFmt3, true));
@@ -1406,7 +1407,7 @@ export default function App() {
         R(row, 4, mkCell(ct.sheets, "n", "6B3FB5", "EDE8FB", "0", true));
         row++;
       });
-      
+
       R(row, 0, { v: "TOTAL", t: "s", s: { font: { bold: true, sz: 10, color: { rgb: "E6920A" }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "FFF4E0" } }, border: bdrM("E6920A") } });
       R(row, 1, mkCell(totals.totalWt, "n", "B45309", "FFF4E0", numFmt3, true, bdrM("E6920A")));
       R(row, 2, mkCell(totals.totalSqm, "n", "2563A8", "FFF4E0", numFmt3, true, bdrM("E6920A")));
@@ -1418,7 +1419,7 @@ export default function App() {
       R(row, 0, { v: "CROSS-PIVOT: MATERIAL TYPE × SHELL PART (WEIGHT kg)", t: "s", s: { font: { bold: true, sz: 10, color: { rgb: "1E3A5F" }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "DBE8F8" } }, border: bdrM("A0C4E4") } });
       for (let c = 1; c < shellCols.length + 2; c++) R(row, c, { v: "", t: "s", s: { fill: { patternType: "solid", fgColor: { rgb: "DBE8F8" }, border: bdrM("A0C4E4") } } });
       row++;
-      
+
       R(row, 0, mkHdr("MATERIAL", "4A6FA8", "F0F5FF"));
       shellCols.forEach((c, i) => {
         const cc = c.color.replace("#", "");
@@ -1459,14 +1460,14 @@ export default function App() {
       row++;
       [["MATERIAL", "4A6FA8", "F0F5FF"], ["WEIGHT (kg)", "B45309", "FFFBEB"], ["% SHARE", "E6920A", "FFF4E0"], ["BAR", "B45309", "FFF4E0"]].forEach(([v, f, b], i) => R(row, i, mkHdr(v, f, b)));
       row++;
-      
+
       matTypes.forEach(m => {
         const mrows = computed.filter(r => r.type === m.name);
         const wt = mrows.reduce((a, r) => a + r.totalWt, 0);
         if (wt === 0) return;
         const pct = totals.totalWt > 0 ? (wt / totals.totalWt) * 100 : 0;
         const cc = m.color.replace("#", "");
-        
+
         R(row, 0, { v: m.name, t: "s", s: { font: { bold: true, sz: 10, color: { rgb: cc }, name: "Calibri" }, fill: { patternType: "solid", fgColor: { rgb: "F8FAFC" } }, border: bdr() } });
         R(row, 1, mkCell(wt, "n", "B45309", "FFFBEB", numFmt3, false));
         R(row, 2, { v: pct / 100, t: "n", s: { font: { sz: 10, name: "Calibri", color: { rgb: "E6920A" } }, fill: { patternType: "solid", fgColor: { rgb: "FFF8EE" } }, alignment: al("center"), border: bdr(), numFmt: "0.0%" } });
@@ -1498,7 +1499,7 @@ export default function App() {
 
   return (
     <div style={{ background: "#f0f5fb", minHeight: "100vh" }}>
-      
+
       {/* USERNAME POPUP */}
       {!username && (
         <div className="modal-overlay">
@@ -1528,200 +1529,201 @@ export default function App() {
       )}
 
       {/* TOP BAR */}
-      <div style={{ background: "#ffffff", borderBottom: "3px solid #e6920a", padding: "11px 20px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 2px 12px rgba(37,99,168,.10)", flexWrap: "wrap" }}>
-        
-        {/* Brand */}
-        <div style={{ background: "linear-gradient(135deg,#e6920a,#f5a623)", padding: "6px 14px", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: 3, borderRadius: 6, boxShadow: "0 2px 8px rgba(230,146,10,.35)" }}>SKAPS</div>
-        <div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 20, color: "#1e3a5f", letterSpacing: 2, lineHeight: 1.1 }}>BOM CALCULATOR</div>
-          <div style={{ fontSize: 9, color: "#7a9bc4", letterSpacing: 1.5, fontWeight: 500 }}>SHEETS INPUT PER PART · SQM / VOL / WT AUTO-CALCULATED</div>
-        </div>
+      <div className="top-bar">
+        <img src={skapsLogo} alt="SKAPS Logo" className="top-bar-logo" />
 
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#1e3a5f" }}>
-            👤 {username}
+        <div className="top-bar-content">
+          <div className="top-bar-title">
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 20, color: "#1e3a5f", letterSpacing: 2, lineHeight: 1.1 }}>BOM CALCULATOR</div>
+            <div style={{ fontSize: 9, color: "#7a9bc4", letterSpacing: 1.5, fontWeight: 500 }}>SHEETS INPUT PER PART · SQM / VOL / WT AUTO-CALCULATED</div>
           </div>
 
-          {/* Metric toggle */}
-          <div style={{ display: "flex", gap: 2, background: "#f0f5fb", padding: "3px", borderRadius: 6, border: "1px solid #d0dcea" }}>
-            {[["sheets", "NO. SHEETS"], ["sqm", "SQM m²"], ["vol", "VOL m³"], ["wt", "WT kg"]].map(([k, l]) => (
-              <button key={k} onClick={() => setShowMetric(k)} style={{ padding: "4px 10px", fontSize: 9, fontFamily: "inherit", borderRadius: 4, cursor: "pointer", fontWeight: 700, border: "none", background: showMetric === k ? "#1e3a5f" : "transparent", color: showMetric === k ? "#e6920a" : "#7a9bc4", transition: "all .15s", letterSpacing: .3 }}>{l}</button>
-            ))}
-          </div>
+          <div className="top-bar-actions">
 
-          {/* Extra % wastage */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: extraPct > 0 ? "#fff4e0" : "#f0f5fb", border: "1.5px solid " + (extraPct > 0 ? "#e6920a" : "#d0dcea"), borderRadius: 6, padding: "4px 10px", transition: "all .2s", minWidth: 130 }}>
-            <span style={{ fontSize: 8, fontWeight: 800, color: extraPct > 0 ? "#e6920a" : "#94a3b8", letterSpacing: .8, whiteSpace: "nowrap" }}>EXTRA %</span>
-            <input
-              type="number" min="0" max="999" step="0.5"
-              value={extraPct === 0 ? "" : extraPct}
-              onChange={e => setExtraPct(Math.max(0, parseFloat(e.target.value) || 0))}
-              onBlur={e => { if (e.target.value === "") setExtraPct(0); }}
-              placeholder="0"
-              style={{ width: 44, background: "transparent", border: "none", outline: "none", fontSize: 12, fontFamily: "'JetBrains Mono',monospace", fontWeight: 800, color: extraPct > 0 ? "#e6920a" : "#94a3b8", textAlign: "center", padding: "0" }}
-            />
-            <span style={{ fontSize: 9, fontWeight: 700, color: extraPct > 0 ? "#e6920a" : "#94a3b8" }}>%</span>
-            {extraPct > 0 && <button onClick={() => setExtraPct(0)} title="Clear" style={{ background: "#e6920a22", border: "none", color: "#e6920a", cursor: "pointer", fontSize: 10, padding: "1px 5px", lineHeight: 1, borderRadius: 3, fontWeight: 800 }}>✕</button>}
-          </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#1e3a5f" }}>
+              👤 {username}
+            </div>
 
-          <div style={{ width: 1, height: 26, background: "#dce8f4", margin: "0 2px" }} />
+            {/* Metric toggle */}
+            <div style={{ display: "flex", gap: 2, background: "#f0f5fb", padding: "3px", borderRadius: 6, border: "1px solid #d0dcea" }}>
+              {[["sheets", "NO. SHEETS"], ["sqm", "SQM m²"], ["vol", "VOL m³"], ["wt", "WT kg"]].map(([k, l]) => (
+                <button key={k} onClick={() => setShowMetric(k)} style={{ padding: "4px 10px", fontSize: 9, fontFamily: "inherit", borderRadius: 4, cursor: "pointer", fontWeight: 700, border: "none", background: showMetric === k ? "#1e3a5f" : "transparent", color: showMetric === k ? "#e6920a" : "#7a9bc4", transition: "all .15s", letterSpacing: .3 }}>{l}</button>
+              ))}
+            </div>
 
-          {/* UNDO */}
-          <button 
-            onClick={() => {
-              if (selectedFormat === "Non Returnable Auxiliary") {
-                if (canUndoNonReturnableRows) { undoNonReturnableRows(); showToast("Undone"); }
-              } else if (selectedFormat === "Returnable Auxiliary") {
-                if (canUndoReturnableRows) { undoReturnableRows(); showToast("Undone"); }
-              } else {
-                if (canUndo) { undoRows(); showToast("Undone"); }
+            {/* Extra % wastage */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, background: extraPct > 0 ? "#fff4e0" : "#f0f5fb", border: "1.5px solid " + (extraPct > 0 ? "#e6920a" : "#d0dcea"), borderRadius: 6, padding: "4px 10px", transition: "all .2s", minWidth: 130 }}>
+              <span style={{ fontSize: 8, fontWeight: 800, color: extraPct > 0 ? "#e6920a" : "#94a3b8", letterSpacing: .8, whiteSpace: "nowrap" }}>EXTRA %</span>
+              <input
+                type="number" min="0" max="999" step="0.5"
+                value={extraPct === 0 ? "" : extraPct}
+                onChange={e => setExtraPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                onBlur={e => { if (e.target.value === "") setExtraPct(0); }}
+                placeholder="0"
+                style={{ width: 44, background: "transparent", border: "none", outline: "none", fontSize: 12, fontFamily: "'JetBrains Mono',monospace", fontWeight: 800, color: extraPct > 0 ? "#e6920a" : "#94a3b8", textAlign: "center", padding: "0" }}
+              />
+              <span style={{ fontSize: 9, fontWeight: 700, color: extraPct > 0 ? "#e6920a" : "#94a3b8" }}>%</span>
+              {extraPct > 0 && <button onClick={() => setExtraPct(0)} title="Clear" style={{ background: "#e6920a22", border: "none", color: "#e6920a", cursor: "pointer", fontSize: 10, padding: "1px 5px", lineHeight: 1, borderRadius: 3, fontWeight: 800 }}>✕</button>}
+            </div>
+
+            <div style={{ width: 1, height: 26, background: "#dce8f4", margin: "0 2px" }} />
+
+            {/* UNDO */}
+            <button
+              onClick={() => {
+                if (selectedFormat === "Non Returnable Auxiliary") {
+                  if (canUndoNonReturnableRows) { undoNonReturnableRows(); showToast("Undone"); }
+                } else if (selectedFormat === "Returnable Auxiliary") {
+                  if (canUndoReturnableRows) { undoReturnableRows(); showToast("Undone"); }
+                } else {
+                  if (canUndo) { undoRows(); showToast("Undone"); }
+                }
+              }}
+              disabled={
+                selectedFormat === "Non Returnable Auxiliary" ? !canUndoNonReturnableRows :
+                  selectedFormat === "Returnable Auxiliary" ? !canUndoReturnableRows :
+                    !canUndo
               }
-            }} 
-            disabled={
-              selectedFormat === "Non Returnable Auxiliary" ? !canUndoNonReturnableRows :
-              selectedFormat === "Returnable Auxiliary" ? !canUndoReturnableRows :
-              !canUndo
-            } 
-            title="Undo (Ctrl+Z)"
-            style={{ 
-              background: (
-                selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
-                selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
-                canUndo
-              ) ? "#f0f4fa" : "#f8fafc", 
-              color: (
-                selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
-                selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
-                canUndo
-              ) ? "#1e3a5f" : "#b8cde0", 
-              border: "1.5px solid " + ((
-                selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
-                selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
-                canUndo
-              ) ? "#c0d4e8" : "#e4eaf4"), 
-              padding: "5px 11px", 
-              fontSize: 10, 
-              fontFamily: "inherit", 
-              cursor: (
-                selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
-                selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
-                canUndo
-              ) ? "pointer" : "not-allowed", 
-              fontWeight: 700, 
-              borderRadius: 5, 
-              display: "flex", 
-              alignItems: "center", 
-              gap: 4 
-            }}
-          >
-            ↩ UNDO
-          </button>
+              title="Undo (Ctrl+Z)"
+              style={{
+                background: (
+                  selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
+                    selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
+                      canUndo
+                ) ? "#f0f4fa" : "#f8fafc",
+                color: (
+                  selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
+                    selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
+                      canUndo
+                ) ? "#1e3a5f" : "#b8cde0",
+                border: "1.5px solid " + ((
+                  selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
+                    selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
+                      canUndo
+                ) ? "#c0d4e8" : "#e4eaf4"),
+                padding: "5px 11px",
+                fontSize: 10,
+                fontFamily: "inherit",
+                cursor: (
+                  selectedFormat === "Non Returnable Auxiliary" ? canUndoNonReturnableRows :
+                    selectedFormat === "Returnable Auxiliary" ? canUndoReturnableRows :
+                      canUndo
+                ) ? "pointer" : "not-allowed",
+                fontWeight: 700,
+                borderRadius: 5,
+                display: "flex",
+                alignItems: "center",
+                gap: 4
+              }}
+            >
+              ↩ UNDO
+            </button>
 
-          {/* MAT TYPES */}
-          <button 
-            onClick={() => setActiveModal("matTypes")}
-            disabled={selectedFormat !== "Bill of Material"}
-            style={{ 
-              background: selectedFormat !== "Bill of Material" ? "#f8fafc" : "#faf5ff", 
-              color: selectedFormat !== "Bill of Material" ? "#b8cde0" : "#7c3aed", 
-              border: "1.5px solid " + (selectedFormat !== "Bill of Material" ? "#e4eaf4" : "#c4b5f4"), 
-              padding: "5px 11px", 
-              fontSize: 10, 
-              fontFamily: "inherit", 
-              cursor: selectedFormat !== "Bill of Material" ? "not-allowed" : "pointer", 
-              fontWeight: 700, 
-              borderRadius: 5, 
-              whiteSpace: "nowrap" 
-            }}
-          >
-            🧱 MAT TYPES
-          </button>
+            {/* MAT TYPES */}
+            <button
+              onClick={() => setActiveModal("matTypes")}
+              disabled={selectedFormat !== "Bill of Material"}
+              style={{
+                background: selectedFormat !== "Bill of Material" ? "#f8fafc" : "#faf5ff",
+                color: selectedFormat !== "Bill of Material" ? "#b8cde0" : "#7c3aed",
+                border: "1.5px solid " + (selectedFormat !== "Bill of Material" ? "#e4eaf4" : "#c4b5f4"),
+                padding: "5px 11px",
+                fontSize: 10,
+                fontFamily: "inherit",
+                cursor: selectedFormat !== "Bill of Material" ? "not-allowed" : "pointer",
+                fontWeight: 700,
+                borderRadius: 5,
+                whiteSpace: "nowrap"
+              }}
+            >
+              🧱 MAT TYPES
+            </button>
 
-          {/* COLUMNS */}
-          <button 
-            onClick={() => setActiveModal("columns")}
-            style={{ 
-              background: "#f0f5fb", 
-              color: "#1e3a5f", 
-              border: "1.5px solid #c0d4e8", 
-              padding: "5px 11px", 
-              fontSize: 10, 
-              fontFamily: "inherit", 
-              cursor: "pointer", 
-              fontWeight: 700, 
-              borderRadius: 5 
-            }}
-          >
-            ⚙ COLUMNS
-          </button>
+            {/* COLUMNS */}
+            <button
+              onClick={() => setActiveModal("columns")}
+              style={{
+                background: "#f0f5fb",
+                color: "#1e3a5f",
+                border: "1.5px solid #c0d4e8",
+                padding: "5px 11px",
+                fontSize: 10,
+                fontFamily: "inherit",
+                cursor: "pointer",
+                fontWeight: 700,
+                borderRadius: 5
+              }}
+            >
+              ⚙ COLUMNS
+            </button>
 
-          <div style={{ width: 1, height: 26, background: "#dce8f4", margin: "0 2px" }} />
+            <div style={{ width: 1, height: 26, background: "#dce8f4", margin: "0 2px" }} />
 
-          {/* IMPORT EXCEL */}
-          <label 
-            style={{ 
-              background: selectedFormat !== "Bill of Material" ? "#f8fafc" : "#f0fdf4", 
-              color: selectedFormat !== "Bill of Material" ? "#b8cde0" : "#15803d", 
-              border: "1.5px solid " + (selectedFormat !== "Bill of Material" ? "#e4eaf4" : "#86efac"), 
-              padding: "5px 11px", 
-              fontSize: 10, 
-              fontFamily: "inherit", 
-              fontWeight: 700, 
-              cursor: selectedFormat !== "Bill of Material" ? "not-allowed" : "pointer", 
-              borderRadius: 5, 
-              display: "flex", 
-              alignItems: "center", 
-              gap: 4, 
-              whiteSpace: "nowrap" 
-            }}
-          >
-            📥 IMPORT EXCEL
-            {selectedFormat === "Bill of Material" && (
-              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} style={{ display: "none" }} />
-            )}
-          </label>
+            {/* IMPORT EXCEL */}
+            <label
+              style={{
+                background: selectedFormat !== "Bill of Material" ? "#f8fafc" : "#f0fdf4",
+                color: selectedFormat !== "Bill of Material" ? "#b8cde0" : "#15803d",
+                border: "1.5px solid " + (selectedFormat !== "Bill of Material" ? "#e4eaf4" : "#86efac"),
+                padding: "5px 11px",
+                fontSize: 10,
+                fontFamily: "inherit",
+                fontWeight: 700,
+                cursor: selectedFormat !== "Bill of Material" ? "not-allowed" : "pointer",
+                borderRadius: 5,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                whiteSpace: "nowrap"
+              }}
+            >
+              📥 IMPORT EXCEL
+              {selectedFormat === "Bill of Material" && (
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} style={{ display: "none" }} />
+              )}
+            </label>
 
-          {/* EXPORT EXCEL */}
-          <button onClick={exportToExcel} disabled={exporting} className={exporting ? "pulsing" : ""}
-            style={{ background: exportMsg ? "#15803d" : "#1e3a5f", color: "#fff", border: "none", padding: "5px 13px", fontSize: 10, fontFamily: "inherit", fontWeight: 700, cursor: "pointer", borderRadius: 5, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "background .3s", boxShadow: "0 1px 4px rgba(30,58,95,.2)" }}>
-            ⬇ {exportMsg || (exporting ? "EXPORTING…" : "EXPORT EXCEL")}
-          </button>
+            {/* EXPORT EXCEL */}
+            <button onClick={exportToExcel} disabled={exporting} className={exporting ? "pulsing" : ""}
+              style={{ background: exportMsg ? "#15803d" : "#1e3a5f", color: "#fff", border: "none", padding: "5px 13px", fontSize: 10, fontFamily: "inherit", fontWeight: 700, cursor: "pointer", borderRadius: 5, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "background .3s", boxShadow: "0 1px 4px rgba(30,58,95,.2)" }}>
+              ⬇ {exportMsg || (exporting ? "EXPORTING…" : "EXPORT EXCEL")}
+            </button>
 
-          {/* ANALYTICS */}
-          <button 
-            onClick={() => setActiveModal("analytics")}
-            disabled={selectedFormat !== "Bill of Material"}
-            style={{ 
-              display: "inline-block", 
-              background: selectedFormat !== "Bill of Material" ? "#f8fafc" : "#f0fdf4", 
-              color: selectedFormat !== "Bill of Material" ? "#b8cde0" : "#15803d", 
-              border: "1.5px solid " + (selectedFormat !== "Bill of Material" ? "#e4eaf4" : "#86efac"), 
-              padding: "5px 13px", 
-              fontSize: 10, 
-              fontFamily: "inherit", 
-              fontWeight: 700, 
-              cursor: selectedFormat !== "Bill of Material" ? "not-allowed" : "pointer", 
-              borderRadius: 5, 
-              whiteSpace: "nowrap", 
-              alignItems: "center", 
-              gap: 5 
-            }}
-          >
-            📊 ANALYTICS
-          </button>
+            {/* ANALYTICS */}
+            <button
+              onClick={() => setActiveModal("analytics")}
+              disabled={selectedFormat !== "Bill of Material"}
+              style={{
+                display: "inline-block",
+                background: selectedFormat !== "Bill of Material" ? "#f8fafc" : "#f0fdf4",
+                color: selectedFormat !== "Bill of Material" ? "#b8cde0" : "#15803d",
+                border: "1.5px solid " + (selectedFormat !== "Bill of Material" ? "#e4eaf4" : "#86efac"),
+                padding: "5px 13px",
+                fontSize: 10,
+                fontFamily: "inherit",
+                fontWeight: 700,
+                cursor: selectedFormat !== "Bill of Material" ? "not-allowed" : "pointer",
+                borderRadius: 5,
+                whiteSpace: "nowrap",
+                alignItems: "center",
+                gap: 5
+              }}
+            >
+              📊 ANALYTICS
+            </button>
 
-          <div style={{ width: 1, height: 26, background: "#dce8f4", margin: "0 2px" }} />
+            <div style={{ width: 1, height: 26, background: "#dce8f4", margin: "0 2px" }} />
 
-          <button onClick={saveToSQL} style={btnPrimary}>
-            💾 SAVE
-          </button>
+            <button onClick={saveToSQL} style={btnPrimary}>
+              💾 SAVE
+            </button>
 
-          <button onClick={() => setShowApprove(true)} style={btnPrimary}>
-            ✅ APPROVE+
-          </button>
- 
-          {lastSaved && <div style={{ fontSize: 8, color: "#94a3b8", lineHeight: 1.5, textAlign: "right" }}><div style={{ color: "#7c3aed", fontWeight: 700, letterSpacing: .5 }}>SAVED</div><div>{lastSaved.toLocaleTimeString()}</div></div>}
+            <button onClick={() => setShowApprove(true)} style={btnPrimary}>
+              ✅ APPROVE+
+            </button>
+
+            {lastSaved && <div style={{ fontSize: 8, color: "#94a3b8", lineHeight: 1.5, textAlign: "right" }}><div style={{ color: "#7c3aed", fontWeight: 700, letterSpacing: .5 }}>SAVED</div><div>{lastSaved.toLocaleTimeString()}</div></div>}
+          </div>
         </div>
       </div>
 
@@ -1978,9 +1980,9 @@ export default function App() {
         selectedFormat={selectedFormat}
         auxCols={
           selectedFormat === "Non Returnable Auxiliary" ? nonReturnableCols :
-          selectedFormat === "Returnable Auxiliary" ? returnableCols :
-          selectedFormat === "Cycle Time - Tentative" ? tentativeCycleCols :
-          selectedFormat === "Cycle Time - Production" ? productionCycleCols : []
+            selectedFormat === "Returnable Auxiliary" ? returnableCols :
+              selectedFormat === "Cycle Time - Tentative" ? tentativeCycleCols :
+                selectedFormat === "Cycle Time - Production" ? productionCycleCols : []
         }
         addAuxCol={addAuxCol}
         removeAuxCol={removeAuxCol}
@@ -2016,9 +2018,9 @@ export default function App() {
         selectedFormat={selectedFormat}
         auxCols={
           selectedFormat === "Non Returnable Auxiliary" ? nonReturnableCols :
-          selectedFormat === "Returnable Auxiliary" ? returnableCols :
-          selectedFormat === "Cycle Time - Tentative" ? tentativeCycleCols :
-          selectedFormat === "Cycle Time - Production" ? productionCycleCols : []
+            selectedFormat === "Returnable Auxiliary" ? returnableCols :
+              selectedFormat === "Cycle Time - Tentative" ? tentativeCycleCols :
+                selectedFormat === "Cycle Time - Production" ? productionCycleCols : []
         }
       />
 
